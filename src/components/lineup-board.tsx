@@ -2,10 +2,18 @@
 
 import { useTransition } from "react";
 import { setLineupSlot } from "@/actions/games";
+import { formatGradeExperience } from "@/lib/player-labels";
 import { cn } from "@/lib/utils";
 
 type Slot = { key: string; label: string; unit: string; pos: string; playerId: string | null };
-type RosterPlayer = { id: string; name: string; status: string; position: string | null };
+type RosterPlayer = {
+  id: string;
+  name: string;
+  status: string;
+  position: string | null;
+  grade: string | null;
+  experience: string | null;
+};
 
 const UNIT_ORDER = ["Attack", "Midfield", "Defense", "Goalie"];
 const POSITION_LABEL: Record<string, string> = { Attack: "Attack", Mid: "Midfield", Def: "Defense", Goalie: "Goalie" };
@@ -23,6 +31,8 @@ const FALLBACK_ORDER: Record<string, string[]> = {
 function optionLabel(p: RosterPlayer) {
   let label = p.name;
   if (p.position) label += `-${p.position[0]}`;
+  const gradeExperience = formatGradeExperience(p.grade, p.experience);
+  if (gradeExperience) label += ` ${gradeExperience}`;
   if (p.status === "Maybe") label += " (Maybe)";
   if (p.status === "Not Available") label += " (Not Available)";
   if (p.status === "No Response") label += " (No Response)";

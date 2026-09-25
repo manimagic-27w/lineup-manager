@@ -3,9 +3,17 @@
 import { useTransition } from "react";
 import { setAvailability } from "@/actions/games";
 import { AVAILABILITY_STATUSES } from "@/lib/db/schema";
+import { formatGradeExperience } from "@/lib/player-labels";
 import { cn } from "@/lib/utils";
 
-type RosterPlayer = { id: string; name: string; position: string | null; status: string };
+type RosterPlayer = {
+  id: string;
+  name: string;
+  position: string | null;
+  status: string;
+  grade: string | null;
+  experience: string | null;
+};
 
 const STATUS_STYLES: Record<string, string> = {
   Available: "bg-emerald-100 text-emerald-800",
@@ -44,11 +52,14 @@ export function AvailabilityList({
 
   return (
     <ul className="divide-y divide-slate-100">
-      {roster.map((p) => (
+      {roster.map((p) => {
+        const gradeExperience = formatGradeExperience(p.grade, p.experience);
+        return (
         <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
           <div className="min-w-0">
             <span className="font-medium text-slate-900">{p.name}</span>
             {p.position && <span className="ml-2 text-xs text-slate-500">{p.position}</span>}
+            {gradeExperience && <span className="ml-2 text-xs text-slate-500">{gradeExperience}</span>}
           </div>
           {canEdit ? (
             <select
@@ -68,7 +79,8 @@ export function AvailabilityList({
             </span>
           )}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
