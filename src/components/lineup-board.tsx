@@ -8,6 +8,26 @@ type Slot = { key: string; label: string; unit: string; pos: string; playerId: s
 type RosterPlayer = { id: string; name: string; status: string; position: string | null };
 
 const UNIT_ORDER = ["Attack", "Midfield", "Defense", "Goalie"];
+const POSITION_LABEL: Record<string, string> = { Attack: "Attack", Mid: "Midfield", Def: "Defense", Goalie: "Goalie" };
+
+// After a slot's own position group, the rest of the eligible players are grouped and ordered
+// by this list (e.g. an Attack slot lists Midfield players before Defense, then Goalie).
+// A Goalie slot has no fallback at all - only goalies are ever offered for it.
+const FALLBACK_ORDER: Record<string, string[]> = {
+  Attack: ["Mid", "Def", "Goalie"],
+  Mid: ["Attack", "Def", "Goalie"],
+  Def: ["Mid", "Attack", "Goalie"],
+  Goalie: [],
+};
+
+function optionLabel(p: RosterPlayer) {
+  let label = p.name;
+  if (p.position) label += `-${p.position[0]}`;
+  if (p.status === "Maybe") label += " (Maybe)";
+  if (p.status === "Not Available") label += " (Not Available)";
+  if (p.status === "No Response") label += " (No Response)";
+  return label;
+}
 
 export function LineupBoard({
   teamId,
@@ -51,26 +71,35 @@ export function LineupBoard({
                 const isMaybeStarter = assignedPlayer?.status === "Maybe";
                 const isFlaggedStarter =
                   assignedPlayer?.status === "Not Available" || assignedPlayer?.status === "No Response";
+                const isGoalieSlot = slot.pos === "Goalie";
+                const fallbackOrder = FALLBACK_ORDER[slot.pos] ?? [];
 
                 // Only players who are Available or Maybe show up as choices (Not Available /
                 // No Response are hidden), except whoever is already assigned to this slot -
                 // they always stay visible here even if their status changed after being
                 // assigned, so the coach can still see/reassign them.
-                const eligible = roster
-                  .filter((p) => {
-                    if (p.id === slot.playerId) return true;
-                    if (assignedElsewhere.has(p.id)) return false;
-                    return p.status === "Available" || p.status === "Maybe";
-                  })
-                  // Players whose roster position matches this slot's position are listed
-                  // first (still alphabetical within each group, since `roster` already comes
-                  // in alphabetical order), so e.g. an Attack slot's dropdown shows attackers
-                  // before everyone else.
-                  .sort((a, b) => {
-                    const aMatch = a.position === slot.pos ? 0 : 1;
-                    const bMatch = b.position === slot.pos ? 0 : 1;
-                    return aMatch - bMatch;
-                  });
+                const eligible = roster.filter((p) => {
+                  if (p.id === slot.playerId) return true;
+                  if (assignedElsewhere.has(p.id)) return false;
+                  return p.status === "Available" || p.status === "Maybe";
+                });
+
+                // Players whose roster position matches this slot's position ("on position")
+                // come first, separated visually from the rest. A Goalie slot only ever offers
+                // goalies at all - no fallback group - other than protecting a player already
+                // assigned there from disappearing outright.
+                const onPosition = eligible.filter((p) => p.position === slot.pos);
+                const rest = isGoalieSlot
+                  ? eligible.filter((p) => p.position !== slot.pos && p.id === slot.playerId)
+                  : eligible
+                      .filter((p) => p.position !== slot.pos)
+                      .sort((a, b) => {
+                        const rank = (pos: string | null) => {
+                          const idx = fallbackOrder.indexOf(pos ?? "");
+                          return idx === -1 ? fallbackOrder.length : idx;
+                        };
+                        return rank(a.position) - rank(b.position);
+                      });
 
                 return (
                   <li key={slot.key} className="flex items-center justify-between gap-2">
@@ -91,15 +120,22 @@ export function LineupBoard({
                         )}
                       >
                         <option value="">Empty</option>
-                        {eligible.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                            {p.position ? `-${p.position[0]}` : ""}
-                            {p.status === "Maybe" ? " (Maybe)" : ""}
-                            {p.status === "Not Available" ? " (Not Available)" : ""}
-                            {p.status === "No Response" ? " (No Response)" : ""}
-                          </option>
-                        ))}
+                        <optgroup label={POSITION_LABEL[slot.pos] ?? slot.pos}>
+                          {onPosition.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {optionLabel(p)}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {rest.length > 0 && (
+                          <optgroup label="Other positions">
+                            {rest.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {optionLabel(p)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     ) : (
                       <span
