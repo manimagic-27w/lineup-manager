@@ -122,6 +122,48 @@ export async function unarchivePlayer(formData: FormData) {
 }
 
 /**
+ * Permanently removes a player. If they're referenced anywhere (availability, a lineup slot, a
+ * stat value - which happens automatically for every roster player as soon as any game exists,
+ * see `createGame`), the database's foreign keys refuse the delete so that history on past
+ * games/stats never silently disappears; in that case this falls back to archiving instead,
+ * which hides them the same way without breaking anything they're tied to.
+ */
+export async function deletePlayer(formData: FormData) {
+  const parsed = archiveSchema.parse({ teamId: formData.get("teamId"), playerId: formData.get("playerId") });
+  const { userId } = await requireTeamAccess(parsed.teamId);
+
+  const [player] = await db
+    .select()
+    .from(players)
+    .where(and(eq(players.id, parsed.playerId), eq(players.teamId, parsed.teamId)))
+    .limit(1);
+  if (!player) return;
+
+  try {
+    await db
+      .delete(players)
+      .where(and(eq(players.id, parsed.playerId), eq(players.teamId, parsed.teamId)));
+    await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "player_deleted", details: player.name });
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    if (code !== "23503") throw err; // anything other than "referenced elsewhere" is unexpected
+    await db
+      .update(players)
+      .set({ archivedAt: new Date() })
+      .where(and(eq(players.id, parsed.playerId), eq(players.teamId, parsed.teamId)));
+    await logActivity({
+      teamId: parsed.teamId,
+      actorUserId: userId,
+      action: "player_archived",
+      details: `${player.name} (has game history, archived instead of deleted)`,
+    });
+  }
+
+  await broadcastTeamUpdate(parsed.teamId, "roster");
+  revalidatePath(`/teams/${parsed.teamId}/roster`);
+}
+
+/**
  * Bulk import from pasted CSV text, header row required: name,number,position,grade,experience
  * (only `name` is required; extra/missing columns are tolerated). This is the manual-paste
  * counterpart to the Google Sheets import script (scripts/import-from-sheets.ts) for clubs

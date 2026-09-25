@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { archivePlayer, unarchivePlayer, updatePlayer } from "@/actions/players";
+import { archivePlayer, unarchivePlayer, updatePlayer, deletePlayer } from "@/actions/players";
 import { SubmitButton } from "@/components/submit-button";
 import { POSITIONS } from "@/lib/db/schema";
 
@@ -109,6 +109,24 @@ function PlayerRow({ player, canEdit }: { player: Player; canEdit: boolean }) {
               <input type="hidden" name="playerId" value={player.id} />
               <button type="submit" className="text-xs font-medium text-slate-600 hover:text-slate-900">
                 {player.archivedAt ? "Restore" : "Archive"}
+              </button>
+            </form>
+            <form
+              action={async (fd) => {
+                if (
+                  !window.confirm(
+                    `Permanently delete ${player.name}? This can't be undone. If they have any game history, they'll be archived instead of deleted.`
+                  )
+                ) {
+                  return;
+                }
+                await deletePlayer(fd);
+              }}
+            >
+              <input type="hidden" name="teamId" value={player.teamId} />
+              <input type="hidden" name="playerId" value={player.id} />
+              <button type="submit" className="text-xs font-medium text-red-600 hover:text-red-800">
+                Delete
               </button>
             </form>
           </div>
