@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getAppUrl } from "@/lib/app-url";
 import { teamCoaches } from "@/lib/db/schema";
 import { requireOrgAdmin, requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
@@ -63,6 +64,9 @@ export async function inviteOrgMember(formData: FormData) {
     emailAddress: parsed.email,
     role: "org:member",
     inviterUserId: session.userId,
+    // Without this, Clerk sends the invite to its own hosted Account Portal instead of back
+    // into the app.
+    redirectUrl: `${getAppUrl()}/`,
   });
 
   // This is a club-level (org) invitation, not scoped to any one team, so there's no
