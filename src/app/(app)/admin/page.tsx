@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { requireOrgAdmin } from "@/lib/auth";
 import { listAccessibleTeams, createTeam } from "@/actions/teams";
-import { inviteOrgMember, listOrgMembers, listPendingInvitations, revokeInvitation } from "@/actions/coaches";
+import { inviteOrgMember, listOrgMembers, listPendingInvitations, revokeInvitation, removeOrgMember } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES, themeSwatch } from "@/lib/utils";
 
 export default async function AdminPage() {
-  await requireOrgAdmin();
+  const session = await requireOrgAdmin();
   const [teams, members, invitations] = await Promise.all([
     listAccessibleTeams(),
     listOrgMembers(),
@@ -80,14 +80,24 @@ export default async function AdminPage() {
         <ul className="mb-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
           {members.length === 0 && <li className="p-4 text-sm text-slate-500">No members yet.</li>}
           {members.map((m) => (
-            <li key={m.userId} className="flex items-center justify-between p-4 text-sm">
+            <li key={m.userId} className="flex items-center justify-between gap-3 p-4 text-sm">
               <div>
                 <div className="font-medium text-slate-900">{m.name}</div>
                 <div className="text-slate-500">{m.email}</div>
               </div>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                {m.role === "org:admin" ? "Admin" : "Coach"}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {m.role === "org:admin" ? "Admin" : "Coach"}
+                </span>
+                {m.userId !== session.userId && (
+                  <form action={removeOrgMember}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <SubmitButton variant="danger" pendingLabel="Removing…">
+                      Remove
+                    </SubmitButton>
+                  </form>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -122,10 +132,25 @@ export default async function AdminPage() {
               className="w-64 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="teamId" className="text-xs font-medium text-slate-600">
+              Assign to team (optional)
+            </label>
+            <select id="teamId" name="teamId" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+              <option value="">- don&rsquo;t assign yet -</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <SubmitButton pendingLabel="Sending…">Send invite</SubmitButton>
         </form>
         <p className="mt-2 text-xs text-slate-500">
-          Once they accept, assign them to a specific team from that team&rsquo;s settings page.
+          Choosing a team assigns them to it automatically as soon as they accept - no separate
+          step needed. You can still assign or change teams later from each team&rsquo;s
+          settings page.
         </p>
       </section>
     </div>

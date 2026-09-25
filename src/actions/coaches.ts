@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
-import { teamCoaches } from "@/lib/db/schema";
+import { teamCoaches, teams, pendingCoachAssignments } from "@/lib/db/schema";
 import { requireOrgAdmin, requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
@@ -28,15 +28,51 @@ export async function listOrgMembers() {
     organizationId: session.orgId,
     limit: 100,
   });
-  return data.map((m) => ({
+  const members = data.map((m) => ({
     userId: m.publicUserData?.userId ?? "",
     name:
       [m.publicUserData?.firstName, m.publicUserData?.lastName].filter(Boolean).join(" ") ||
       m.publicUserData?.identifier ||
       "Unknown",
-    email: m.publicUserData?.identifier ?? "",
+    email: (m.publicUserData?.identifier ?? "").toLowerCase(),
     role: m.role,
   }));
+
+  await reconcilePendingCoachAssignments(session.orgId, members);
+
+  return members;
+}
+
+/**
+ * Turns any invite-time team assignments into real `team_coaches` rows for whoever has since
+ * accepted their invitation (matched by email against the club's current members), and clears
+ * the pending row once applied. Called from `listOrgMembers` so this happens on every admin
+ * page load - there's no webhook wired up for "invitation accepted," so this is how it catches
+ * up instead.
+ */
+async function reconcilePendingCoachAssignments(
+  orgId: string,
+  members: { userId: string; email: string }[]
+) {
+  if (members.length === 0) return;
+  const clubTeams = await db.select({ id: teams.id }).from(teams).where(eq(teams.orgId, orgId));
+  if (clubTeams.length === 0) return;
+  const teamIds = clubTeams.map((t) => t.id);
+
+  const pending = await db
+    .select()
+    .from(pendingCoachAssignments)
+    .where(inArray(pendingCoachAssignments.teamId, teamIds));
+  if (pending.length === 0) return;
+
+  const memberByEmail = new Map(members.filter((m) => m.userId && m.email).map((m) => [m.email, m.userId]));
+
+  for (const p of pending) {
+    const userId = memberByEmail.get(p.email);
+    if (!userId) continue; // hasn't accepted the invite yet
+    await db.insert(teamCoaches).values({ teamId: p.teamId, userId, addedBy: p.invitedBy }).onConflictDoNothing();
+    await db.delete(pendingCoachAssignments).where(eq(pendingCoachAssignments.id, p.id));
+  }
 }
 
 export async function listPendingInvitations() {
@@ -50,13 +86,25 @@ export async function listPendingInvitations() {
   return data.map((i) => ({ id: i.id, email: i.emailAddress, role: i.role }));
 }
 
-const inviteSchema = z.object({ email: z.string().trim().email() });
+const inviteSchema = z.object({
+  email: z.string().trim().email(),
+  teamId: z.union([z.string().uuid(), z.literal("")]).optional(),
+});
 
-/** Invites someone to the club itself (org:member). They still need to be assigned to a
- *  specific team afterward via `assignCoachToTeam` once they show up in `listOrgMembers`. */
+/**
+ * Invites someone to the club itself (org:member). Optionally also assigns them to one team
+ * in the same step - since Clerk invitations only carry an email (no user id exists until
+ * they accept), that assignment is held in `pending_coach_assignments` and applied for real
+ * the next time `listOrgMembers` runs after they accept. Without a team chosen here, this
+ * behaves as before: assign them afterward from that team's settings page once they show up
+ * in `listOrgMembers`.
+ */
 export async function inviteOrgMember(formData: FormData) {
   const session = await requireOrgAdmin();
-  const parsed = inviteSchema.parse({ email: formData.get("email") });
+  const parsed = inviteSchema.parse({
+    email: formData.get("email"),
+    teamId: formData.get("teamId") || undefined,
+  });
   const clerk = await clerkClient();
 
   await clerk.organizations.createOrganizationInvitation({
@@ -69,8 +117,49 @@ export async function inviteOrgMember(formData: FormData) {
     redirectUrl: `${getAppUrl()}/`,
   });
 
+  if (parsed.teamId) {
+    await db.insert(pendingCoachAssignments).values({
+      teamId: parsed.teamId,
+      email: parsed.email.trim().toLowerCase(),
+      invitedBy: session.userId,
+    });
+  }
+
   // This is a club-level (org) invitation, not scoped to any one team, so there's no
   // `activity_log` row for it - that table is always team-scoped.
+
+  revalidatePath("/admin");
+}
+
+const removeMemberSchema = z.object({ userId: z.string().min(1) });
+
+/** Removes someone from the club entirely (revokes their Clerk org membership) and drops any
+ *  team assignments they had within this club, since they're no longer a member at all. */
+export async function removeOrgMember(formData: FormData) {
+  const session = await requireOrgAdmin();
+  const parsed = removeMemberSchema.parse({ userId: formData.get("userId") });
+
+  if (parsed.userId === session.userId) {
+    throw new Error("You can't remove yourself from the club.");
+  }
+
+  const clerk = await clerkClient();
+  await clerk.organizations.deleteOrganizationMembership({
+    organizationId: session.orgId,
+    userId: parsed.userId,
+  });
+
+  const clubTeams = await db.select({ id: teams.id }).from(teams).where(eq(teams.orgId, session.orgId));
+  if (clubTeams.length > 0) {
+    await db
+      .delete(teamCoaches)
+      .where(
+        and(
+          eq(teamCoaches.userId, parsed.userId),
+          inArray(teamCoaches.teamId, clubTeams.map((t) => t.id))
+        )
+      );
+  }
 
   revalidatePath("/admin");
 }

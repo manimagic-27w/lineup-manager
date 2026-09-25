@@ -83,6 +83,24 @@ export const teamCoaches = pgTable(
   (t) => [primaryKey({ columns: [t.teamId, t.userId] })]
 );
 
+/**
+ * A team assignment requested at invite time, before the person has accepted and become a
+ * real club member. Clerk invitations only carry an email address - there's no user id to put
+ * in `team_coaches` until the invite is accepted - so this holds the intent in the meantime.
+ * `listOrgMembers` reconciles these against current club members on every admin page load
+ * (matching by email) and turns matches into real `team_coaches` rows, then deletes the row
+ * here. See `inviteOrgMember` in `src/actions/coaches.ts`.
+ */
+export const pendingCoachAssignments = pgTable("pending_coach_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  email: text("email").notNull(), // lowercased
+  invitedBy: text("invited_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /* ------------------------------------------------------------------ */
 /* Roster                                                              */
 /* ------------------------------------------------------------------ */
