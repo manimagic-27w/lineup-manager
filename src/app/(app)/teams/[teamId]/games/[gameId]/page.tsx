@@ -21,7 +21,7 @@ export default async function GameDayPage({
   const activeRoster = roster.filter((p) => !p.archivedAt);
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-6xl flex-1 space-y-8 px-4 py-8 sm:px-6">
       <TeamRealtime teamId={teamId} scopes={["availability", "lineup"]} />
 
       <section className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -67,17 +67,19 @@ export default async function GameDayPage({
         </form>
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} canEdit />
-        </div>
-      </section>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
+          <LineupBoard teamId={teamId} gameId={gameId} slots={slots} roster={activeRoster} canEdit />
+        </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
-        <LineupBoard teamId={teamId} gameId={gameId} slots={slots} roster={activeRoster} canEdit />
-      </section>
+        <section className="lg:sticky lg:top-6">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} canEdit />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
