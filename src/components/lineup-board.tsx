@@ -49,6 +49,8 @@ export function LineupBoard({
               .map((slot) => {
                 const assignedPlayer = slot.playerId ? playerById.get(slot.playerId) : undefined;
                 const isMaybeStarter = assignedPlayer?.status === "Maybe";
+                const isFlaggedStarter =
+                  assignedPlayer?.status === "Not Available" || assignedPlayer?.status === "No Response";
 
                 // Only players who are Available or Maybe show up as choices (Not Available /
                 // No Response are hidden), except whoever is already assigned to this slot -
@@ -79,11 +81,13 @@ export function LineupBoard({
                         onChange={(e) => assign(slot.key, e.target.value)}
                         className={cn(
                           "flex-1 rounded-md border px-2 py-1 text-sm",
-                          isMaybeStarter
-                            ? "border-amber-400 bg-amber-100 text-amber-900"
-                            : slot.playerId
-                              ? "border-slate-300 bg-white"
-                              : "border-dashed border-slate-300 text-slate-400"
+                          isFlaggedStarter
+                            ? "border-red-400 bg-red-100 text-red-800"
+                            : isMaybeStarter
+                              ? "border-amber-400 bg-amber-100 text-amber-900"
+                              : slot.playerId
+                                ? "border-slate-300 bg-white"
+                                : "border-dashed border-slate-300 text-slate-400"
                         )}
                       >
                         <option value="">Empty</option>
@@ -91,6 +95,8 @@ export function LineupBoard({
                           <option key={p.id} value={p.id}>
                             {p.name}
                             {p.status === "Maybe" ? " (Maybe)" : ""}
+                            {p.status === "Not Available" ? " (Not Available)" : ""}
+                            {p.status === "No Response" ? " (No Response)" : ""}
                           </option>
                         ))}
                       </select>
@@ -98,7 +104,11 @@ export function LineupBoard({
                       <span
                         className={cn(
                           "flex-1 rounded-md px-2 py-1 text-sm",
-                          isMaybeStarter ? "bg-amber-100 text-amber-900" : "text-slate-900"
+                          isFlaggedStarter
+                            ? "bg-red-100 text-red-800"
+                            : isMaybeStarter
+                              ? "bg-amber-100 text-amber-900"
+                              : "text-slate-900"
                         )}
                       >
                         {assignedPlayer?.name ?? "Empty"}

@@ -146,10 +146,11 @@ const availabilitySchema = z.object({
 });
 
 /**
- * Setting a player unavailable does NOT touch their lineup slot or any stat values already
+ * Setting a player's availability never touches their lineup slot or any stat values already
  * recorded - the stats screen computes the blackout live from this status, it never deletes
- * data. If they were penciled into a slot, we clear that slot so the lineup can't silently
- * field someone who just went unavailable.
+ * data. If they're penciled into a slot when their status changes to Not Available or No
+ * Response, they stay in the slot rather than being silently pulled out - the lineup board
+ * flags their name in red instead, so the coach notices and decides whether to swap them out.
  */
 export async function setAvailability(formData: FormData) {
   const parsed = availabilitySchema.parse({
@@ -160,22 +161,13 @@ export async function setAvailability(formData: FormData) {
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
-  await db.transaction(async (tx) => {
-    await tx
-      .insert(gamePlayers)
-      .values({ gameId: parsed.gameId, playerId: parsed.playerId, status: parsed.status })
-      .onConflictDoUpdate({
-        target: [gamePlayers.gameId, gamePlayers.playerId],
-        set: { status: parsed.status },
-      });
-
-    if (parsed.status === "Not Available") {
-      await tx
-        .update(lineupSlots)
-        .set({ playerId: null })
-        .where(and(eq(lineupSlots.gameId, parsed.gameId), eq(lineupSlots.playerId, parsed.playerId)));
-    }
-  });
+  await db
+    .insert(gamePlayers)
+    .values({ gameId: parsed.gameId, playerId: parsed.playerId, status: parsed.status })
+    .onConflictDoUpdate({
+      target: [gamePlayers.gameId, gamePlayers.playerId],
+      set: { status: parsed.status },
+    });
 
   await logActivity({
     teamId: parsed.teamId,
