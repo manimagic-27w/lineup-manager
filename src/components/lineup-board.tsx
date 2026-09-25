@@ -94,6 +94,7 @@ export function LineupBoard({
                         {eligible.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
+                            {p.position ? `-${p.position[0]}` : ""}
                             {p.status === "Maybe" ? " (Maybe)" : ""}
                             {p.status === "Not Available" ? " (Not Available)" : ""}
                             {p.status === "No Response" ? " (No Response)" : ""}
