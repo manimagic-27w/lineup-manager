@@ -52,6 +52,17 @@ describe("normalizePosition", () => {
     expect(normalizePosition(undefined)).toBeNull();
     expect(normalizePosition("")).toBeNull();
   });
+
+  it("maps common full-word spellings onto the canonical abbreviated values", () => {
+    expect(normalizePosition("Midfield")).toBe("Mid");
+    expect(normalizePosition("midfield")).toBe("Mid");
+    expect(normalizePosition("Midfielder")).toBe("Mid");
+    expect(normalizePosition("Defense")).toBe("Def");
+    expect(normalizePosition("Defence")).toBe("Def");
+    expect(normalizePosition("Defender")).toBe("Def");
+    expect(normalizePosition("Goalkeeper")).toBe("Goalie");
+    expect(normalizePosition("  Midfield  ")).toBe("Mid");
+  });
 });
 
 describe("toCsv", () => {

@@ -44,9 +44,37 @@ export function parseRosterCsv(csv: string): ParsedRosterRow[] {
     .map((r) => r.data);
 }
 
+// Maps common full-word spellings (as used in the old Sheets app and most rosters people
+// paste in) onto the app's canonical, abbreviated position values. Matching is
+// case/whitespace-insensitive so "Midfield", "midfield", " MIDFIELD " all resolve the same way.
+const POSITION_SYNONYMS: Record<string, (typeof POSITIONS)[number]> = {
+  attack: "Attack",
+  attacker: "Attack",
+  a: "Attack",
+  mid: "Mid",
+  midfield: "Mid",
+  midfielder: "Mid",
+  middie: "Mid",
+  m: "Mid",
+  def: "Def",
+  defense: "Def",
+  defence: "Def",
+  defender: "Def",
+  defenseman: "Def",
+  defenceman: "Def",
+  d: "Def",
+  goalie: "Goalie",
+  goalkeeper: "Goalie",
+  goaltender: "Goalie",
+  keeper: "Goalie",
+  g: "Goalie",
+};
+
 export function normalizePosition(value: string | undefined): string | null {
   if (!value) return null;
-  return (POSITIONS as readonly string[]).includes(value) ? value : null;
+  const trimmed = value.trim();
+  if ((POSITIONS as readonly string[]).includes(trimmed)) return trimmed;
+  return POSITION_SYNONYMS[trimmed.toLowerCase()] ?? null;
 }
 
 function csvEscape(value: unknown) {

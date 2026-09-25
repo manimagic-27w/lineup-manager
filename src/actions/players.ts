@@ -136,22 +136,54 @@ export async function importRosterCsv(formData: FormData) {
   const rows = parseRosterCsv(csv);
   if (rows.length === 0) return;
 
-  await db.insert(players).values(
-    rows.map((r) => ({
-      teamId,
-      name: r.name,
-      number: r.number || null,
-      position: normalizePosition(r.position),
-      grade: r.grade || null,
-      experience: r.experience || null,
-    }))
-  );
+  // Match against the existing roster by name (case/whitespace-insensitive) so re-importing an
+  // updated file - e.g. the same roster with grade/experience filled in later - updates those
+  // players in place instead of creating duplicates.
+  const existing = await db.select().from(players).where(eq(players.teamId, teamId));
+  const existingByName = new Map(existing.map((p) => [p.name.trim().toLowerCase(), p]));
+
+  let updated = 0;
+  let created = 0;
+  const toInsert: (typeof players.$inferInsert)[] = [];
+
+  for (const r of rows) {
+    const match = existingByName.get(r.name.trim().toLowerCase());
+    const position = normalizePosition(r.position);
+
+    if (match) {
+      // Only touch fields the row actually provided, so a partial re-import never blanks out
+      // data (like grade/experience) that was already filled in on the existing player.
+      const set: Partial<typeof players.$inferInsert> = {};
+      if (r.number) set.number = r.number;
+      if (position) set.position = position;
+      if (r.grade) set.grade = r.grade;
+      if (r.experience) set.experience = r.experience;
+      if (Object.keys(set).length > 0) {
+        await db.update(players).set(set).where(eq(players.id, match.id));
+      }
+      updated += 1;
+    } else {
+      toInsert.push({
+        teamId,
+        name: r.name,
+        number: r.number || null,
+        position,
+        grade: r.grade || null,
+        experience: r.experience || null,
+      });
+      created += 1;
+    }
+  }
+
+  if (toInsert.length > 0) {
+    await db.insert(players).values(toInsert);
+  }
 
   await logActivity({
     teamId,
     actorUserId: userId,
     action: "roster_imported",
-    details: `${rows.length} players`,
+    details: `${created} added, ${updated} updated`,
   });
   await broadcastTeamUpdate(teamId, "roster");
   revalidatePath(`/teams/${teamId}/roster`);
