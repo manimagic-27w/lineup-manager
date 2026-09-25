@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getGame, getGameDay, updateGame, deleteGame } from "@/actions/games";
 import { requireTeamAccess } from "@/lib/auth";
 import { AvailabilityList } from "@/components/availability-list";
@@ -58,6 +59,14 @@ export default async function GameDayPage({
             Save
           </SubmitButton>
         </form>
+        <Link
+          href={`/teams/${teamId}/games/${gameId}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-200"
+        >
+          Print lineup sheet
+        </Link>
         <form action={deleteGame}>
           <input type="hidden" name="teamId" value={teamId} />
           <input type="hidden" name="gameId" value={gameId} />

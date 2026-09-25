@@ -15,7 +15,7 @@ export default async function TeamLayout({
   return (
     <div className="flex flex-1 flex-col">
       <div
-        className="border-b border-slate-200 bg-white px-4 pt-4 sm:px-6"
+        className="border-b border-slate-200 bg-white px-4 pt-4 sm:px-6 print:hidden"
         style={{ borderTopColor: themeSwatch(team.theme), borderTopWidth: 4 }}
       >
         <h1 className="text-xl font-semibold text-slate-900">{team.name}</h1>
