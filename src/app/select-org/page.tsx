@@ -6,7 +6,7 @@ export default function SelectOrgPage() {
       <div className="text-center">
         <h1 className="text-2xl font-semibold text-slate-900">Choose a club</h1>
         <p className="mt-1 text-slate-600">
-          Pick the club you coach for, or create a new one to get started.
+          Pick the club you coach for. Don&apos;t see it? Ask your club admin to invite you.
         </p>
       </div>
       <OrganizationList hidePersonal afterSelectOrganizationUrl="/" afterCreateOrganizationUrl="/" />
