@@ -21,6 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           />
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/welcome" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+            Getting started
+          </Link>
           {isAdmin && (
             <Link
               href="/admin"

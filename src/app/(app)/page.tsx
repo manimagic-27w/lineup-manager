@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listAccessibleTeams } from "@/actions/teams";
 import { requireOrgSession } from "@/lib/auth";
 import { themeSwatch } from "@/lib/utils";
+import { WelcomeTips } from "@/components/welcome-tips";
 
 export default async function DashboardPage() {
   const session = await requireOrgSession();
@@ -23,20 +24,23 @@ export default async function DashboardPage() {
       </div>
 
       {teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-          <p className="text-slate-600">
-            {isAdmin
-              ? "This club doesn't have any teams yet."
-              : "You haven't been assigned to a team yet. Ask a club admin to add you as a coach."}
-          </p>
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className="mt-4 inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Create a team
-            </Link>
-          )}
+        <div className="space-y-6">
+          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+            <p className="text-slate-600">
+              {isAdmin
+                ? "This club doesn't have any teams yet."
+                : "You haven't been assigned to a team yet. Ask a club admin to add you as a coach."}
+            </p>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="mt-4 inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                Create a team
+              </Link>
+            )}
+          </div>
+          <WelcomeTips />
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">

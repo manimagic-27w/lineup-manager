@@ -7,7 +7,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
 import { teamCoaches, teams, pendingCoachAssignments } from "@/lib/db/schema";
-import { requireOrgAdmin, requireTeamAccess } from "@/lib/auth";
+import { requireOrgAdmin, requireOrgSession, requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 
@@ -71,6 +71,38 @@ async function reconcilePendingCoachAssignments(
     const userId = memberByEmail.get(p.email);
     if (!userId) continue; // hasn't accepted the invite yet
     await db.insert(teamCoaches).values({ teamId: p.teamId, userId, addedBy: p.invitedBy }).onConflictDoNothing();
+    await db.delete(pendingCoachAssignments).where(eq(pendingCoachAssignments.id, p.id));
+  }
+}
+
+/**
+ * Same idea as reconcilePendingCoachAssignments above, but scoped to just the calling user and
+ * run right from their own dashboard load - not only when an admin happens to open /admin.
+ * Without this, a coach who was assigned a team at invite time saw no teams at all until some
+ * admin's next /admin page view reconciled them for real, which could be an arbitrary wait.
+ */
+export async function reconcileMyPendingAssignments() {
+  const session = await requireOrgSession();
+  const clerk = await clerkClient();
+  const user = await clerk.users.getUser(session.userId);
+  const email = user.primaryEmailAddress?.emailAddress?.toLowerCase();
+  if (!email) return;
+
+  const clubTeams = await db.select({ id: teams.id }).from(teams).where(eq(teams.orgId, session.orgId));
+  if (clubTeams.length === 0) return;
+  const teamIds = clubTeams.map((t) => t.id);
+
+  const pending = await db
+    .select()
+    .from(pendingCoachAssignments)
+    .where(and(eq(pendingCoachAssignments.email, email), inArray(pendingCoachAssignments.teamId, teamIds)));
+  if (pending.length === 0) return;
+
+  for (const p of pending) {
+    await db
+      .insert(teamCoaches)
+      .values({ teamId: p.teamId, userId: session.userId, addedBy: p.invitedBy })
+      .onConflictDoNothing();
     await db.delete(pendingCoachAssignments).where(eq(pendingCoachAssignments.id, p.id));
   }
 }

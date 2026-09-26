@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES } from "@/lib/db/schema";
 import { requireOrgAdmin, requireOrgSession, requireTeamAccess } from "@/lib/auth";
+import { reconcileMyPendingAssignments } from "@/actions/coaches";
 import { logActivity } from "@/lib/activity";
 import { THEMES } from "@/lib/utils";
 
@@ -20,6 +21,11 @@ export async function listAccessibleTeams() {
   if (isAdmin) {
     return db.select().from(teams).where(eq(teams.orgId, session.orgId)).orderBy(teams.name);
   }
+
+  // Catches up any invite-time team assignment that's still waiting on the coach to show up as
+  // a real club member - see reconcileMyPendingAssignments for why this can't just happen once,
+  // server-side, the moment they accept the Clerk invite.
+  await reconcileMyPendingAssignments();
 
   const rows = await db
     .select({ team: teams })
