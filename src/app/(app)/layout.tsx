@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { Logo } from "@/components/logo";
 import { OrgBadge } from "@/components/org-badge";
 import { requireOrgSession } from "@/lib/auth";
 
@@ -11,8 +12,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 print:hidden">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-slate-900">
-            Lineup Manager
+          <Link href="/" aria-label="Lineup Manager home">
+            <Logo className="text-xl sm:text-2xl" />
           </Link>
           <OrgBadge />
         </div>
