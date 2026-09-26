@@ -47,14 +47,7 @@ export default async function GameDayPage({
               className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-slate-600">Notes</label>
-            <input
-              name="notes"
-              defaultValue={game.notes}
-              className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-            />
-          </div>
+          <input type="hidden" name="notes" value={game.notes} />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save
           </SubmitButton>
@@ -73,6 +66,29 @@ export default async function GameDayPage({
         <section>
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
           <LineupBoard teamId={teamId} gameId={gameId} slots={slots} roster={activeRoster} canEdit />
+
+          <form action={updateGame} className="mt-4">
+            <input type="hidden" name="teamId" value={teamId} />
+            <input type="hidden" name="gameId" value={gameId} />
+            <input type="hidden" name="date" value={game.date} />
+            <input type="hidden" name="opponent" value={game.opponent ?? ""} />
+            <label htmlFor="game-notes" className="mb-1 block text-xs font-medium text-slate-600">
+              Notes
+            </label>
+            <textarea
+              id="game-notes"
+              name="notes"
+              defaultValue={game.notes}
+              rows={3}
+              placeholder="Reminders for game day - subs every quarter, watch their fast break, etc. Shows up on the printed lineup sheet too."
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <div className="mt-2">
+              <SubmitButton variant="secondary" pendingLabel="Saving…">
+                Save notes
+              </SubmitButton>
+            </div>
+          </form>
         </section>
 
         <section className="lg:sticky lg:top-6">

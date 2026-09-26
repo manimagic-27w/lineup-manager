@@ -44,7 +44,6 @@ export default async function LineupPrintPage({
           {game.date}
           {game.opponent ? ` vs ${game.opponent}` : ""}
         </p>
-        {game.notes && <p className="text-sm text-slate-500">{game.notes}</p>}
       </header>
 
       <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 print:grid-cols-2 print:gap-4">
@@ -98,6 +97,15 @@ export default async function LineupPrintPage({
           </ul>
         )}
       </section>
+
+      {game.notes && (
+        <section>
+          <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
+            Notes
+          </h2>
+          <p className="whitespace-pre-line text-sm text-slate-900">{game.notes}</p>
+        </section>
+      )}
     </div>
   );
 }
