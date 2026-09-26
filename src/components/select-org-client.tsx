@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { OrganizationList, useOrganizationList } from "@clerk/nextjs";
+import { useOrganizationList } from "@clerk/nextjs";
 
 /**
- * Coaches only ever belong to one club in practice - the invite flow is a club admin adding
- * them to their one club. Clerk's <OrganizationList/> always shows a pick screen regardless of
- * membership count, so this skips it: the moment we know the signed-in user has exactly one
- * membership, we activate it ourselves and redirect straight into the app - the picker never
- * renders. Anyone with zero or more than one membership still sees the normal list.
+ * A hand-rolled replacement for Clerk's <OrganizationList/> on this one screen. Clerk's
+ * "Allow user-created organizations" dashboard setting blocks the create action server-side,
+ * but their prebuilt component still renders the "Create organization" button regardless of
+ * that setting - there's no documented prop to hide just that button. Building the list
+ * ourselves from the same membership data sidesteps that entirely: there is no create option
+ * here because we never render one.
+ *
+ * Coaches only ever belong to one club in practice, so on top of that: the moment we know the
+ * signed-in user has exactly one membership, we activate it ourselves and redirect straight
+ * into the app, skipping this screen altogether. Anyone with zero or more than one membership
+ * sees the list below instead.
  */
 export function SelectOrgClient() {
   const router = useRouter();
@@ -17,6 +23,7 @@ export function SelectOrgClient() {
     userMemberships: true,
   });
   const [activationFailed, setActivationFailed] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
   const ready = isLoaded && !userMemberships.isLoading;
   const soleMembership =
@@ -28,6 +35,14 @@ export function SelectOrgClient() {
       .then(() => router.replace("/"))
       .catch(() => setActivationFailed(true));
   }, [soleMembership, setActive, router]);
+
+  function selectOrg(organizationId: string) {
+    if (!setActive) return;
+    setJoiningId(organizationId);
+    setActive({ organization: organizationId })
+      .then(() => router.replace("/"))
+      .catch(() => setJoiningId(null));
+  }
 
   if (!ready || soleMembership) {
     return <p className="py-16 text-center text-sm text-slate-500">Loading your club…</p>;
@@ -43,7 +58,23 @@ export function SelectOrgClient() {
             : "Pick the club you coach for."}
         </p>
       </div>
-      <OrganizationList hidePersonal afterSelectOrganizationUrl="/" afterCreateOrganizationUrl="/" />
+
+      {userMemberships.count > 0 && (
+        <ul className="w-full max-w-sm space-y-2">
+          {userMemberships.data?.map((membership) => (
+            <li key={membership.id}>
+              <button
+                type="button"
+                disabled={joiningId !== null}
+                onClick={() => selectOrg(membership.organization.id)}
+                className="w-full rounded-lg border border-slate-200 bg-white p-4 text-left font-medium text-slate-900 shadow-sm transition-shadow hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {joiningId === membership.organization.id ? "Joining…" : membership.organization.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
 }
