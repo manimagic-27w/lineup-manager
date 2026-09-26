@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useOrganizationList } from "@clerk/nextjs";
 
 /**
@@ -18,9 +17,8 @@ import { useOrganizationList } from "@clerk/nextjs";
  * sees the list below instead.
  */
 export function SelectOrgClient() {
-  const router = useRouter();
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
-    userMemberships: true,
+    userMemberships: { infinite: true },
   });
   const [activationFailed, setActivationFailed] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -32,15 +30,24 @@ export function SelectOrgClient() {
   useEffect(() => {
     if (!soleMembership || !setActive) return;
     setActive({ organization: soleMembership.organization.id })
-      .then(() => router.replace("/"))
+      .then(() => {
+        // Hard navigation, not router.replace: the server needs the session cookie to
+        // actually carry the new org before requireOrgSession() will let it through, and
+        // that can lag just behind a soft client-side navigation, bouncing the user right
+        // back to this screen. A full reload guarantees a fresh request picks up the
+        // updated cookie.
+        window.location.href = "/";
+      })
       .catch(() => setActivationFailed(true));
-  }, [soleMembership, setActive, router]);
+  }, [soleMembership, setActive]);
 
   function selectOrg(organizationId: string) {
     if (!setActive) return;
     setJoiningId(organizationId);
     setActive({ organization: organizationId })
-      .then(() => router.replace("/"))
+      .then(() => {
+        window.location.href = "/";
+      })
       .catch(() => setJoiningId(null));
   }
 
