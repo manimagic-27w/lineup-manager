@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const TIPS = [
-  "Every team has five tabs: Roster, Games, Stats, Activity, and Settings - Roster and Games are where you'll spend most of your time.",
+  "Every team has six tabs: Roster, Games, Stats, History, Activity, and Settings - Roster and Games are where you'll spend most of your time.",
   "On each game's page, set every player's availability (Available, Maybe, Not Available) before you build the lineup - the lineup dropdowns only offer Available or Maybe players.",
   "A Maybe player placed in the lineup is highlighted yellow; a starter whose availability changes to Not Available or No Response turns red so you notice and can swap them out.",
   "Anyone not in a starting slot shows up automatically on the Bench below the lineup - no extra step needed.",
