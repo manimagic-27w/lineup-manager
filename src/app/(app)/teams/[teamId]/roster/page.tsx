@@ -4,7 +4,7 @@ import { requireTeamAccess } from "@/lib/auth";
 import { RosterTable } from "@/components/roster-table";
 import { SubmitButton } from "@/components/submit-button";
 import { TeamRealtime } from "@/components/team-realtime";
-import { POSITIONS } from "@/lib/db/schema";
+import { EXPERIENCE_LEVELS, POSITIONS } from "@/lib/db/schema";
 
 export default async function RosterPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
@@ -48,7 +48,14 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Experience</label>
-            <input name="experience" className="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            <select name="experience" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="">-</option>
+              {EXPERIENCE_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
           </div>
           <SubmitButton pendingLabel="Adding…">Add player</SubmitButton>
         </form>

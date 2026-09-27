@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { archivePlayer, unarchivePlayer, updatePlayer, deletePlayer } from "@/actions/players";
+import { useMemo, useState, useTransition } from "react";
+import {
+  archivePlayer,
+  unarchivePlayer,
+  updatePlayer,
+  deletePlayer,
+  updateRosterExperience,
+} from "@/actions/players";
 import { SubmitButton } from "@/components/submit-button";
-import { POSITIONS } from "@/lib/db/schema";
+import { EXPERIENCE_LEVELS, POSITIONS } from "@/lib/db/schema";
 
 type Player = {
   id: string;
@@ -17,32 +23,103 @@ type Player = {
 };
 
 export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: boolean }) {
+  // Every row's current Experience dropdown value, keyed by player id, so it can be edited in
+  // place and saved for the whole roster in one action instead of one player at a time.
+  const [experienceDraft, setExperienceDraft] = useState<Record<string, string>>(() =>
+    Object.fromEntries(players.map((p) => [p.id, p.experience ?? ""]))
+  );
+  const [isSaving, startSaving] = useTransition();
+  const [justSaved, setJustSaved] = useState(false);
+
+  const dirtyPlayerIds = useMemo(
+    () => players.filter((p) => (experienceDraft[p.id] ?? p.experience ?? "") !== (p.experience ?? "")).map((p) => p.id),
+    [players, experienceDraft]
+  );
+
+  function setExperience(playerId: string, value: string) {
+    setExperienceDraft((prev) => ({ ...prev, [playerId]: value }));
+    setJustSaved(false);
+  }
+
+  function saveRoster() {
+    const teamId = players[0]?.teamId;
+    if (!teamId || dirtyPlayerIds.length === 0) return;
+    const entries = dirtyPlayerIds.map((playerId) => ({
+      playerId,
+      experience: experienceDraft[playerId] ?? "",
+    }));
+    startSaving(async () => {
+      await updateRosterExperience(teamId, entries);
+      setJustSaved(true);
+    });
+  }
+
   if (players.length === 0) {
     return <p className="p-4 text-sm text-slate-500">No players yet - add one below.</p>;
   }
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-          <th className="px-4 py-2">Name</th>
-          <th className="px-4 py-2">#</th>
-          <th className="px-4 py-2">Position</th>
-          <th className="px-4 py-2">Grade</th>
-          <th className="px-4 py-2">Experience</th>
-          {canEdit && <th className="px-4 py-2" />}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-100">
-        {players.map((p) => (
-          <PlayerRow key={p.id} player={p} canEdit={canEdit} />
-        ))}
-      </tbody>
-    </table>
+    <div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+            <th className="px-4 py-2">Name</th>
+            <th className="px-4 py-2">#</th>
+            <th className="px-4 py-2">Position</th>
+            <th className="px-4 py-2">Grade</th>
+            <th className="px-4 py-2">Experience</th>
+            {canEdit && <th className="px-4 py-2" />}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {players.map((p) => (
+            <PlayerRow
+              key={p.id}
+              player={p}
+              canEdit={canEdit}
+              experience={experienceDraft[p.id] ?? p.experience ?? ""}
+              onExperienceChange={(value) => setExperience(p.id, value)}
+            />
+          ))}
+        </tbody>
+      </table>
+
+      {canEdit && (
+        <div className="flex items-center gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
+          <button
+            type="button"
+            disabled={dirtyPlayerIds.length === 0 || isSaving}
+            onClick={saveRoster}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSaving ? "Saving…" : "Save roster changes"}
+          </button>
+          <span className="text-xs text-slate-500">
+            {isSaving
+              ? "Saving…"
+              : dirtyPlayerIds.length > 0
+                ? `${dirtyPlayerIds.length} player${dirtyPlayerIds.length === 1 ? "" : "s"} changed`
+                : justSaved
+                  ? "Saved"
+                  : "No unsaved changes"}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
-function PlayerRow({ player, canEdit }: { player: Player; canEdit: boolean }) {
+function PlayerRow({
+  player,
+  canEdit,
+  experience,
+  onExperienceChange,
+}: {
+  player: Player;
+  canEdit: boolean;
+  experience: string;
+  onExperienceChange: (value: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
 
   if (editing) {
@@ -58,6 +135,10 @@ function PlayerRow({ player, canEdit }: { player: Player; canEdit: boolean }) {
           >
             <input type="hidden" name="playerId" value={player.id} />
             <input type="hidden" name="teamId" value={player.teamId} />
+            {/* Experience is edited from the dropdown in the table row itself (and saved via
+                "Save roster changes"), not here - carry the current value through unchanged so
+                saving name/#/position/grade never touches it. */}
+            <input type="hidden" name="experience" value={player.experience ?? ""} />
             <Field label="Name" name="name" defaultValue={player.name} required />
             <Field label="#" name="number" defaultValue={player.number ?? ""} className="w-16" />
             <div className="flex flex-col gap-1">
@@ -76,7 +157,6 @@ function PlayerRow({ player, canEdit }: { player: Player; canEdit: boolean }) {
               </select>
             </div>
             <Field label="Grade" name="grade" defaultValue={player.grade ?? ""} className="w-20" />
-            <Field label="Experience" name="experience" defaultValue={player.experience ?? ""} className="w-32" />
             <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
             <button
               type="button"
@@ -91,13 +171,38 @@ function PlayerRow({ player, canEdit }: { player: Player; canEdit: boolean }) {
     );
   }
 
+  // A row's stored experience might not be one of EXPERIENCE_LEVELS - older free-text data, or a
+  // CSV import - in which case it's pinned in as an extra option so the dropdown shows what's
+  // actually saved instead of silently falling back to "New" and overwriting it on next save.
+  const options =
+    experience && !(EXPERIENCE_LEVELS as readonly string[]).includes(experience)
+      ? [experience, ...EXPERIENCE_LEVELS]
+      : EXPERIENCE_LEVELS;
+
   return (
     <tr className={player.archivedAt ? "text-slate-400" : ""}>
       <td className="px-4 py-2 font-medium">{player.name}</td>
       <td className="px-4 py-2">{player.number ?? "-"}</td>
       <td className="px-4 py-2">{player.position ?? "-"}</td>
       <td className="px-4 py-2">{player.grade ?? "-"}</td>
-      <td className="px-4 py-2">{player.experience ?? "-"}</td>
+      <td className="px-4 py-2">
+        {canEdit ? (
+          <select
+            value={experience}
+            onChange={(e) => onExperienceChange(e.target.value)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+          >
+            <option value="">-</option>
+            {options.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
+        ) : (
+          (player.experience ?? "-")
+        )}
+      </td>
       {canEdit && (
         <td className="px-4 py-2 text-right">
           <div className="flex justify-end gap-2">
