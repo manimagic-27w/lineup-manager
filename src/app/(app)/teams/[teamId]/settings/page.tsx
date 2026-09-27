@@ -119,7 +119,7 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
           </a>
           <a
             href={`/api/teams/${teamId}/export?format=xlsx`}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+            className="rounded-md bg-brand-orange px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-orange-light"
           >
             Download full export (.xlsx)
           </a>

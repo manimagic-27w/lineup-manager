@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #232d4b;
   color-scheme: light;
 }
 
@@ -13,6 +13,40 @@
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/*
+ * Theme: Navy, Blue, Orange - the same three colors as the LINEUP MANAGER wordmark (see
+ * src/components/logo.tsx), pulled from UVA's own brand colors since 3D Virginia is the club
+ * this app was built for.
+ *
+ * Tailwind's own "slate" scale is overridden below with a navy-hued replacement, same lightness
+ * per step as Tailwind's defaults (so existing contrast/accessibility is preserved), just tinted
+ * toward navy instead of neutral gray. Every existing `slate-*` utility class across the app
+ * picks this up automatically - no need to touch each component. slate-900 lands exactly on
+ * #232D4B, UVA's own navy.
+ *
+ * brand-blue and brand-orange are new tokens, used deliberately in specific spots (the logo,
+ * primary buttons, links, the active tab) rather than swapped in everywhere - status colors
+ * (red for destructive actions, amber for "Maybe", emerald for "Available") are untouched on
+ * purpose, since those carry meaning that has nothing to do with branding.
+ */
+@theme {
+  --color-slate-50: #f4f6fa;
+  --color-slate-100: #eaedf6;
+  --color-slate-200: #d5dbeb;
+  --color-slate-300: #b4bdda;
+  --color-slate-400: #7889ba;
+  --color-slate-500: #4d619d;
+  --color-slate-600: #3b4b7d;
+  --color-slate-700: #2f3d65;
+  --color-slate-800: #283355;
+  --color-slate-900: #232d4b;
+
+  --color-brand-blue: #1ca8db;
+  --color-brand-blue-light: #43bbe7;
+  --color-brand-orange: #e57200;
+  --color-brand-orange-light: #ff8b19;
 }
 
 body {

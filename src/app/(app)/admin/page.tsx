@@ -39,7 +39,7 @@ export default async function AdminPage() {
                 />
                 <span className="font-medium text-slate-900">{team.name}</span>
               </div>
-              <Link href={`/teams/${team.id}/settings`} className="text-sm text-slate-600 hover:text-slate-900">
+              <Link href={`/teams/${team.id}/settings`} className="text-sm text-slate-600 hover:text-brand-blue">
                 Settings →
               </Link>
             </li>

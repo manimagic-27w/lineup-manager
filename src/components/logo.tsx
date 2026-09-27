@@ -1,14 +1,15 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The "LINEUP MANAGER" wordmark: LINEUP in the jersey red, MANAGER in the jersey blue, both with
- * a white outline (the same treatment as the number on the 3D Virginia jersey this palette was
- * pulled from). Renders inline at whatever font-size the caller sets - no size baked in here.
+ * The "LINEUP MANAGER" wordmark: LINEUP in brand orange, MANAGER in brand blue, both outlined in
+ * navy - the app's three theme colors (see the @theme block in globals.css, which is where the
+ * exact hex values below are also defined; kept literal here rather than reading CSS variables
+ * since this renders as inline styles, not Tailwind classes).
  */
 export function Logo({ className }: { className?: string }) {
   const wordStyle = (color: string): React.CSSProperties => ({
     color,
-    WebkitTextStroke: "0.06em #FFFFFF",
+    WebkitTextStroke: "0.06em #232D4B",
     paintOrder: "stroke fill",
   });
 
@@ -17,7 +18,7 @@ export function Logo({ className }: { className?: string }) {
       className={cn("inline-flex items-baseline gap-[0.22em] whitespace-nowrap", className)}
       style={{ fontFamily: "'Anton', sans-serif", letterSpacing: "0.02em" }}
     >
-      <span style={wordStyle("#D2232A")}>LINEUP</span>
+      <span style={wordStyle("#E57200")}>LINEUP</span>
       <span style={wordStyle("#1CA8DB")}>MANAGER</span>
     </span>
   );

@@ -107,7 +107,7 @@ export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: 
             type="button"
             disabled={dirtyPlayerIds.length === 0 || isSaving}
             onClick={saveRoster}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-brand-orange px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-orange-light disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? "Saving…" : "Save roster changes"}
           </button>
@@ -232,13 +232,13 @@ function PlayerRow({
       {canEdit && (
         <td className="px-4 py-2 text-right">
           <div className="flex justify-end gap-2">
-            <button onClick={() => setEditing(true)} className="text-xs font-medium text-slate-600 hover:text-slate-900">
+            <button onClick={() => setEditing(true)} className="text-xs font-medium text-slate-600 hover:text-brand-blue">
               Edit
             </button>
             <form action={player.archivedAt ? unarchivePlayer : archivePlayer}>
               <input type="hidden" name="teamId" value={player.teamId} />
               <input type="hidden" name="playerId" value={player.id} />
-              <button type="submit" className="text-xs font-medium text-slate-600 hover:text-slate-900">
+              <button type="submit" className="text-xs font-medium text-slate-600 hover:text-brand-blue">
                 {player.archivedAt ? "Restore" : "Archive"}
               </button>
             </form>

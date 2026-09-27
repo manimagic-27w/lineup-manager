@@ -19,7 +19,7 @@ export function SubmitButton({
   const base =
     "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
   const variants = {
-    primary: "bg-slate-900 text-white hover:bg-slate-700",
+    primary: "bg-brand-orange text-white hover:bg-brand-orange-light",
     secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
     danger: "bg-red-600 text-white hover:bg-red-500",
   };

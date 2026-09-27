@@ -18,13 +18,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <OrgBadge />
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/welcome" className="text-sm font-medium text-slate-600 hover:text-slate-900">
+          <Link href="/welcome" className="text-sm font-medium text-slate-600 hover:text-brand-blue">
             Getting started
           </Link>
           {isAdmin && (
             <Link
               href="/admin"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900"
+              className="text-sm font-medium text-slate-600 hover:text-brand-blue"
             >
               Admin
             </Link>

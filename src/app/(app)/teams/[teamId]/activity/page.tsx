@@ -63,14 +63,14 @@ export default async function ActivityPage({
 
       <div className="flex justify-between text-sm">
         {page > 0 ? (
-          <Link href={`?page=${page - 1}`} className="text-slate-600 hover:text-slate-900">
+          <Link href={`?page=${page - 1}`} className="text-slate-600 hover:text-brand-blue">
             ← Newer
           </Link>
         ) : (
           <span />
         )}
         {hasMore && (
-          <Link href={`?page=${page + 1}`} className="text-slate-600 hover:text-slate-900">
+          <Link href={`?page=${page + 1}`} className="text-slate-600 hover:text-brand-blue">
             Older →
           </Link>
         )}

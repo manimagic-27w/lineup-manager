@@ -25,8 +25,8 @@ export function TeamNav({ teamId }: { teamId: string }) {
             className={cn(
               "whitespace-nowrap border-b-2 pb-2 font-medium",
               active
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-900"
+                ? "border-brand-orange text-brand-orange"
+                : "border-transparent text-slate-500 hover:text-brand-blue"
             )}
           >
             {tab.label}
