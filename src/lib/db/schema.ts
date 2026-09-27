@@ -36,7 +36,7 @@ export type Position = (typeof POSITIONS)[number];
 // Experience/level options shown as a dropdown on the roster page. Existing players may still
 // have older free-text values (imported via CSV, or entered before this list existed) - the
 // column itself stays a plain text column so that history is never silently lost.
-export const EXPERIENCE_LEVELS = ["New", "Red", "Travel", "A", "B", "C"] as const;
+export const EXPERIENCE_LEVELS = ["New", "Rec", "Travel", "A", "B", "C"] as const;
 export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number];
 
 // Starting lineup slots - identical set for every team, same as the Sheets version's SLOTS array.

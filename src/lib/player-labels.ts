@@ -8,10 +8,11 @@ const EXPERIENCE_SYNONYMS: Record<string, string> = {
   n: "N",
   travel: "T",
   t: "T",
-  red: "R",
-  r: "R",
-  // Older synonyms, from before "Red" was the roster page's label for this level.
   rec: "R",
+  r: "R",
+  // Older synonyms, from before "Rec" was the roster page's label for this level (it was
+  // briefly "Red" for a short time too).
+  red: "R",
   recreation: "R",
   a: "A",
   b: "B",
