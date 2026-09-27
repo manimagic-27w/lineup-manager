@@ -10,6 +10,7 @@ export function TeamNav({ teamId }: { teamId: string }) {
     { href: `/teams/${teamId}/roster`, label: "Roster" },
     { href: `/teams/${teamId}/games`, label: "Games" },
     { href: `/teams/${teamId}/stats`, label: "Stats" },
+    { href: `/teams/${teamId}/history`, label: "History" },
     { href: `/teams/${teamId}/activity`, label: "Activity" },
     { href: `/teams/${teamId}/settings`, label: "Settings" },
   ];
