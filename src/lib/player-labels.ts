@@ -25,13 +25,15 @@ export function experienceLetter(value: string | null | undefined): string | nul
   return EXPERIENCE_SYNONYMS[key] ?? null;
 }
 
-// Only shown when BOTH grade and a recognized experience level are present - e.g. "11T".
+// Shows whichever of grade/experience is actually there - "11T" with both, just "T" with no
+// grade, just "11" with no recognized experience level - so a player missing one still gets a
+// useful label next to their name instead of nothing at all. Null only when neither is present.
 export function formatGradeExperience(
   grade: string | null | undefined,
   experience: string | null | undefined
 ): string | null {
   const trimmedGrade = grade?.trim();
   const expLetter = experienceLetter(experience);
-  if (!trimmedGrade || !expLetter) return null;
-  return `${trimmedGrade}${expLetter}`;
+  if (!trimmedGrade && !expLetter) return null;
+  return `${trimmedGrade ?? ""}${expLetter ?? ""}`;
 }
