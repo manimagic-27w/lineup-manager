@@ -6,7 +6,7 @@ import {
   unarchivePlayer,
   updatePlayer,
   deletePlayer,
-  updateRosterExperience,
+  updateRosterFields,
 } from "@/actions/players";
 import { SubmitButton } from "@/components/submit-button";
 import { EXPERIENCE_LEVELS, POSITIONS } from "@/lib/db/schema";
@@ -22,22 +22,34 @@ type Player = {
   archivedAt: Date | null;
 };
 
+type Draft = { position: string; experience: string };
+
+function draftOf(player: Player): Draft {
+  return { position: player.position ?? "", experience: player.experience ?? "" };
+}
+
 export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: boolean }) {
-  // Every row's current Experience dropdown value, keyed by player id, so it can be edited in
-  // place and saved for the whole roster in one action instead of one player at a time.
-  const [experienceDraft, setExperienceDraft] = useState<Record<string, string>>(() =>
-    Object.fromEntries(players.map((p) => [p.id, p.experience ?? ""]))
+  // Every row's current Position + Experience dropdown values, keyed by player id, so both can
+  // be edited in place and saved for the whole roster in one action instead of one player at a
+  // time.
+  const [draft, setDraft] = useState<Record<string, Draft>>(() =>
+    Object.fromEntries(players.map((p) => [p.id, draftOf(p)]))
   );
   const [isSaving, startSaving] = useTransition();
   const [justSaved, setJustSaved] = useState(false);
 
-  const dirtyPlayerIds = useMemo(
-    () => players.filter((p) => (experienceDraft[p.id] ?? p.experience ?? "") !== (p.experience ?? "")).map((p) => p.id),
-    [players, experienceDraft]
-  );
+  const dirtyPlayerIds = useMemo(() => {
+    return players
+      .filter((p) => {
+        const d = draft[p.id] ?? draftOf(p);
+        const original = draftOf(p);
+        return d.position !== original.position || d.experience !== original.experience;
+      })
+      .map((p) => p.id);
+  }, [players, draft]);
 
-  function setExperience(playerId: string, value: string) {
-    setExperienceDraft((prev) => ({ ...prev, [playerId]: value }));
+  function setField(playerId: string, field: keyof Draft, value: string) {
+    setDraft((prev) => ({ ...prev, [playerId]: { ...(prev[playerId] ?? { position: "", experience: "" }), [field]: value } }));
     setJustSaved(false);
   }
 
@@ -46,10 +58,10 @@ export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: 
     if (!teamId || dirtyPlayerIds.length === 0) return;
     const entries = dirtyPlayerIds.map((playerId) => ({
       playerId,
-      experience: experienceDraft[playerId] ?? "",
+      ...(draft[playerId] ?? { position: "", experience: "" }),
     }));
     startSaving(async () => {
-      await updateRosterExperience(teamId, entries);
+      await updateRosterFields(teamId, entries);
       setJustSaved(true);
     });
   }
@@ -72,15 +84,20 @@ export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: 
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {players.map((p) => (
-            <PlayerRow
-              key={p.id}
-              player={p}
-              canEdit={canEdit}
-              experience={experienceDraft[p.id] ?? p.experience ?? ""}
-              onExperienceChange={(value) => setExperience(p.id, value)}
-            />
-          ))}
+          {players.map((p) => {
+            const d = draft[p.id] ?? draftOf(p);
+            return (
+              <PlayerRow
+                key={p.id}
+                player={p}
+                canEdit={canEdit}
+                position={d.position}
+                experience={d.experience}
+                onPositionChange={(value) => setField(p.id, "position", value)}
+                onExperienceChange={(value) => setField(p.id, "experience", value)}
+              />
+            );
+          })}
         </tbody>
       </table>
 
@@ -112,12 +129,16 @@ export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: 
 function PlayerRow({
   player,
   canEdit,
+  position,
   experience,
+  onPositionChange,
   onExperienceChange,
 }: {
   player: Player;
   canEdit: boolean;
+  position: string;
   experience: string;
+  onPositionChange: (value: string) => void;
   onExperienceChange: (value: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -135,27 +156,13 @@ function PlayerRow({
           >
             <input type="hidden" name="playerId" value={player.id} />
             <input type="hidden" name="teamId" value={player.teamId} />
-            {/* Experience is edited from the dropdown in the table row itself (and saved via
-                "Save roster changes"), not here - carry the current value through unchanged so
-                saving name/#/position/grade never touches it. */}
+            {/* Position and Experience are edited from the dropdowns in the table row itself
+                (and saved via "Save roster changes"), not here - carry their current values
+                through unchanged so saving name/#/grade never touches either. */}
+            <input type="hidden" name="position" value={player.position ?? ""} />
             <input type="hidden" name="experience" value={player.experience ?? ""} />
             <Field label="Name" name="name" defaultValue={player.name} required />
             <Field label="#" name="number" defaultValue={player.number ?? ""} className="w-16" />
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Position</label>
-              <select
-                name="position"
-                defaultValue={player.position ?? ""}
-                className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-              >
-                <option value="">-</option>
-                {POSITIONS.map((pos) => (
-                  <option key={pos} value={pos}>
-                    {pos}
-                  </option>
-                ))}
-              </select>
-            </div>
             <Field label="Grade" name="grade" defaultValue={player.grade ?? ""} className="w-20" />
             <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
             <button
@@ -174,7 +181,9 @@ function PlayerRow({
   // A row's stored experience might not be one of EXPERIENCE_LEVELS - older free-text data, or a
   // CSV import - in which case it's pinned in as an extra option so the dropdown shows what's
   // actually saved instead of silently falling back to "New" and overwriting it on next save.
-  const options =
+  // Position doesn't need this: addPlayer, updatePlayer and the CSV importer's normalizePosition
+  // all already restrict it to POSITIONS, so nothing outside that list ever reaches the database.
+  const experienceOptions =
     experience && !(EXPERIENCE_LEVELS as readonly string[]).includes(experience)
       ? [experience, ...EXPERIENCE_LEVELS]
       : EXPERIENCE_LEVELS;
@@ -183,7 +192,24 @@ function PlayerRow({
     <tr className={player.archivedAt ? "text-slate-400" : ""}>
       <td className="px-4 py-2 font-medium">{player.name}</td>
       <td className="px-4 py-2">{player.number ?? "-"}</td>
-      <td className="px-4 py-2">{player.position ?? "-"}</td>
+      <td className="px-4 py-2">
+        {canEdit ? (
+          <select
+            value={position}
+            onChange={(e) => onPositionChange(e.target.value)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+          >
+            <option value="">-</option>
+            {POSITIONS.map((pos) => (
+              <option key={pos} value={pos}>
+                {pos}
+              </option>
+            ))}
+          </select>
+        ) : (
+          (player.position ?? "-")
+        )}
+      </td>
       <td className="px-4 py-2">{player.grade ?? "-"}</td>
       <td className="px-4 py-2">
         {canEdit ? (
@@ -193,7 +219,7 @@ function PlayerRow({
             className="rounded-md border border-slate-300 px-2 py-1 text-sm"
           >
             <option value="">-</option>
-            {options.map((level) => (
+            {experienceOptions.map((level) => (
               <option key={level} value={level}>
                 {level}
               </option>

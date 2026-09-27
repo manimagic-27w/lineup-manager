@@ -163,42 +163,45 @@ export async function deletePlayer(formData: FormData) {
   revalidatePath(`/teams/${parsed.teamId}/roster`);
 }
 
-const rosterExperienceEntrySchema = z.object({
+const rosterFieldsEntrySchema = z.object({
   playerId: z.string().uuid(),
+  position: z.union([z.enum(POSITION_KEYS), z.literal("")]),
   experience: z.string().trim().max(40),
 });
 
 /**
- * Bulk-saves the Experience dropdown for every row on the roster page in one action, so a coach
- * can update several players' levels and hit one "Save roster changes" button instead of opening
- * each player's edit form. Called directly from the client (not a <form action>, since it takes
- * a plain array rather than FormData) - see RosterTable.
+ * Bulk-saves the Position and Experience dropdowns for every row on the roster page in one
+ * action, so a coach can update several players at once and hit one "Save roster changes" button
+ * instead of opening each player's edit form. Called directly from the client (not a <form
+ * action>, since it takes a plain array rather than FormData) - see RosterTable.
  *
- * Deliberately not validated against EXPERIENCE_LEVELS: a row the coach never touched still
- * round-trips through here carrying whatever value the player already had, including older
- * free-text values entered before that fixed list existed, and rejecting those would make an
- * unrelated player's change fail to save.
+ * Experience is deliberately not validated against EXPERIENCE_LEVELS: a row the coach never
+ * touched still round-trips through here carrying whatever value the player already had,
+ * including older free-text values entered before that fixed list existed, and rejecting those
+ * would make an unrelated player's change fail to save. Position doesn't need the same
+ * leniency - every existing value already comes from the same POSITIONS enum (addPlayer,
+ * updatePlayer and the CSV importer's normalizePosition all enforce it).
  */
-export async function updateRosterExperience(
+export async function updateRosterFields(
   teamId: string,
-  entries: { playerId: string; experience: string }[]
+  entries: { playerId: string; position: string; experience: string }[]
 ) {
   const parsedTeamId = z.string().uuid().parse(teamId);
-  const parsedEntries = z.array(rosterExperienceEntrySchema).parse(entries);
+  const parsedEntries = z.array(rosterFieldsEntrySchema).parse(entries);
   const { userId } = await requireTeamAccess(parsedTeamId);
   if (parsedEntries.length === 0) return;
 
   for (const entry of parsedEntries) {
     await db
       .update(players)
-      .set({ experience: entry.experience || null })
+      .set({ position: entry.position || null, experience: entry.experience || null })
       .where(and(eq(players.id, entry.playerId), eq(players.teamId, parsedTeamId)));
   }
 
   await logActivity({
     teamId: parsedTeamId,
     actorUserId: userId,
-    action: "roster_experience_updated",
+    action: "roster_updated",
     details: `${parsedEntries.length} player${parsedEntries.length === 1 ? "" : "s"}`,
   });
   await broadcastTeamUpdate(parsedTeamId, "roster");
