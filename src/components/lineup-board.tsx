@@ -127,7 +127,7 @@ export function LineupBoard({
                           value={slot.playerId ?? ""}
                           onChange={(e) => assign(slot.key, e.target.value)}
                           className={cn(
-                            "flex-1 rounded-md border px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-1",
+                            "min-w-0 flex-1 truncate rounded-md border px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-1",
                             isFlaggedStarter
                               ? "border-red-400 bg-red-100 text-red-800"
                               : isMaybeStarter
