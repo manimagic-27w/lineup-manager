@@ -10,6 +10,7 @@ type Slot = { key: string; label: string; unit: string; pos: string; playerId: s
 type RosterPlayer = {
   id: string;
   name: string;
+  number: string | null;
   status: string;
   position: string | null;
   grade: string | null;
@@ -30,7 +31,7 @@ const FALLBACK_ORDER: Record<string, string[]> = {
 };
 
 function optionLabel(p: RosterPlayer) {
-  let label = p.name;
+  let label = p.number ? `#${p.number} ${p.name}` : p.name;
   if (p.position) label += `-${p.position[0]}`;
   const gradeExperience = formatGradeExperience(p.grade, p.experience);
   if (gradeExperience) label += ` ${gradeExperience}`;
