@@ -56,13 +56,19 @@ const ORG_ID = process.env.IMPORT_TARGET_ORG_ID!;
 const ACTOR_USER_ID = process.env.IMPORT_TARGET_ADMIN_USER_ID!;
 const HUB_ID = process.env.SHEETS_HUB_SPREADSHEET_ID!;
 
+// Maps a color name as it might appear in the old Sheet to one of this app's current THEMES
+// keys (see src/lib/utils.ts: red, orange, navy, silver, green). The Sheet's palette was never
+// identical to the app's, so a few of these are "closest available" rather than exact matches -
+// black and purple in particular have no real equivalent in the current five, so they fall back
+// to the nearest neutral/dark tone (silver, navy) rather than a bold color that wouldn't have
+// been the coach's original intent.
 const THEME_MAP: Record<string, string> = {
   green: "green",
   navy: "navy",
-  orange: "gold",
-  black: "black",
-  purple: "purple",
-  red: "maroon",
+  orange: "orange",
+  red: "red",
+  black: "silver",
+  purple: "navy",
   teal: "green",
 };
 
