@@ -20,6 +20,8 @@ const ACTION_LABELS: Record<string, string> = {
   lineup_set: "updated the lineup",
   stat_category_added: "added a stat category",
   stat_category_removed: "removed a stat category",
+  season_created: "created a season",
+  season_deleted: "deleted a season",
   coach_assigned: "assigned a coach",
   coach_removed: "removed a coach",
 };

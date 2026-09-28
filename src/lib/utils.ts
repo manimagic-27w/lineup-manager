@@ -2,6 +2,13 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+// Game film links are stored as free text (see games.filmUrl) so an already-pasted link never
+// fails to save - a coach might paste "hudl.com/..." without the scheme. This is only for
+// building an <a href>; it never touches what's actually stored.
+export function ensureHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
 export function formatDate(value: string | Date) {
   const d = typeof value === "string" ? new Date(`${value}T00:00:00`) : value;
   return d.toLocaleDateString(undefined, {

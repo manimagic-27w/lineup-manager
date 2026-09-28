@@ -60,10 +60,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   gamesSheet.columns = [
     { header: "Date", key: "date", width: 14 },
     { header: "Opponent", key: "opponent", width: 24 },
+    { header: "Season", key: "season", width: 18 },
+    { header: "Film link", key: "filmUrl", width: 30 },
     { header: "Notes", key: "notes", width: 40 },
   ];
   for (const g of data.games) {
-    gamesSheet.addRow({ date: g.date, opponent: g.opponent ?? "", notes: g.notes });
+    gamesSheet.addRow({
+      date: g.date,
+      opponent: g.opponent ?? "",
+      season: g.seasonName ?? "",
+      filmUrl: g.filmUrl ?? "",
+      notes: g.notes,
+    });
   }
 
   const availSheet = workbook.addWorksheet("Availability");

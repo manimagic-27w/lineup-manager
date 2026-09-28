@@ -39,6 +39,9 @@ const createGameSchema = z.object({
   date: z.string().min(1),
   opponent: z.string().trim().max(120),
   notes: z.string().trim().max(1000),
+  // Empty string means "No season" - seasonId stays optional on every game.
+  seasonId: z.union([z.string().uuid(), z.literal("")]),
+  filmUrl: z.string().trim().max(500),
 });
 
 export async function createGame(formData: FormData) {
@@ -47,6 +50,8 @@ export async function createGame(formData: FormData) {
     date: formData.get("date"),
     opponent: formData.get("opponent") ?? "",
     notes: formData.get("notes") ?? "",
+    seasonId: formData.get("seasonId") ?? "",
+    filmUrl: formData.get("filmUrl") ?? "",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
@@ -57,6 +62,8 @@ export async function createGame(formData: FormData) {
       date: parsed.date,
       opponent: parsed.opponent || null,
       notes: parsed.notes,
+      seasonId: parsed.seasonId || null,
+      filmUrl: parsed.filmUrl || null,
       createdBy: userId,
     })
     .returning();
@@ -91,12 +98,20 @@ export async function updateGame(formData: FormData) {
     date: formData.get("date"),
     opponent: formData.get("opponent") ?? "",
     notes: formData.get("notes") ?? "",
+    seasonId: formData.get("seasonId") ?? "",
+    filmUrl: formData.get("filmUrl") ?? "",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
   await db
     .update(games)
-    .set({ date: parsed.date, opponent: parsed.opponent || null, notes: parsed.notes })
+    .set({
+      date: parsed.date,
+      opponent: parsed.opponent || null,
+      notes: parsed.notes,
+      seasonId: parsed.seasonId || null,
+      filmUrl: parsed.filmUrl || null,
+    })
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
   await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "game_updated", details: parsed.date });

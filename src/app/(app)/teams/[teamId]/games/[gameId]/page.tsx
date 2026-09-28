@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getGame, getGameDay, updateGame, deleteGame } from "@/actions/games";
+import { listSeasons } from "@/actions/seasons";
 import { requireTeamAccess } from "@/lib/auth";
+import { ensureHttpUrl } from "@/lib/utils";
 import { AvailabilityList } from "@/components/availability-list";
 import { LineupBoard } from "@/components/lineup-board";
 import { PrintLineupButton } from "@/components/print-lineup-button";
@@ -18,7 +20,10 @@ export default async function GameDayPage({
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const { roster, slots } = await getGameDay(teamId, gameId);
+  const [{ roster, slots }, seasons] = await Promise.all([
+    getGameDay(teamId, gameId),
+    listSeasons(teamId),
+  ]);
   const activeRoster = roster.filter((p) => !p.archivedAt);
 
   return (
@@ -47,11 +52,47 @@ export default async function GameDayPage({
               className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             />
           </div>
+          {seasons.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">Season</label>
+              <select
+                name="seasonId"
+                defaultValue={game.seasonId ?? ""}
+                className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">No season</option>
+                {seasons.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600">Game film link</label>
+            <input
+              name="filmUrl"
+              defaultValue={game.filmUrl ?? ""}
+              placeholder="https://…"
+              className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
           <input type="hidden" name="notes" value={game.notes} />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save
           </SubmitButton>
         </form>
+        {game.filmUrl && (
+          <a
+            href={ensureHttpUrl(game.filmUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-brand-blue hover:bg-slate-200"
+          >
+            Watch film ↗
+          </a>
+        )}
         <PrintLineupButton href={`/teams/${teamId}/games/${gameId}/print`} />
         <form action={deleteGame}>
           <input type="hidden" name="teamId" value={teamId} />
@@ -72,6 +113,8 @@ export default async function GameDayPage({
             <input type="hidden" name="gameId" value={gameId} />
             <input type="hidden" name="date" value={game.date} />
             <input type="hidden" name="opponent" value={game.opponent ?? ""} />
+            <input type="hidden" name="seasonId" value={game.seasonId ?? ""} />
+            <input type="hidden" name="filmUrl" value={game.filmUrl ?? ""} />
             <label htmlFor="game-notes" className="mb-1 block text-xs font-medium text-slate-600">
               Notes
             </label>
