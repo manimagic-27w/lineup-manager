@@ -4,13 +4,14 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES } from "@/lib/db/schema";
+import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES, TEAM_TYPES } from "@/lib/db/schema";
 import { requireOrgAdmin, requireOrgSession, requireTeamAccess } from "@/lib/auth";
 import { reconcileMyPendingAssignments } from "@/actions/coaches";
 import { logActivity } from "@/lib/activity";
 import { THEMES } from "@/lib/utils";
 
 const THEME_KEYS = THEMES.map((t) => t.key) as [string, ...string[]];
+const TEAM_TYPE_KEYS = TEAM_TYPES.map((t) => t.key) as [string, ...string[]];
 
 /** Every team the caller may see in their active club: all of them for an org:admin, only the
  *  ones they coach for anyone else. This is the multi-team "hub" view from the old Sheets app. */
@@ -39,6 +40,7 @@ export async function listAccessibleTeams() {
 const createTeamSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   theme: z.enum(THEME_KEYS).default("green"),
+  teamType: z.enum(TEAM_TYPE_KEYS).default("travel"),
 });
 
 export async function createTeam(formData: FormData) {
@@ -46,6 +48,7 @@ export async function createTeam(formData: FormData) {
   const parsed = createTeamSchema.parse({
     name: formData.get("name"),
     theme: formData.get("theme") || "green",
+    teamType: formData.get("teamType") || "travel",
   });
 
   const [team] = await db
@@ -54,6 +57,7 @@ export async function createTeam(formData: FormData) {
       orgId: session.orgId,
       name: parsed.name,
       theme: parsed.theme,
+      teamType: parsed.teamType,
       createdBy: session.userId,
     })
     .returning();
@@ -113,6 +117,30 @@ export async function setTeamTheme(formData: FormData) {
     actorUserId: userId,
     action: "team_theme_changed",
     details: parsed.theme,
+  });
+
+  revalidatePath(`/teams/${parsed.teamId}`);
+}
+
+const setTeamTypeSchema = z.object({ teamId: z.string().uuid(), teamType: z.enum(TEAM_TYPE_KEYS) });
+
+// Changing a team's type only changes which Experience options the roster page offers going
+// forward - it never touches any player's already-saved experience value, even if that value
+// isn't one of the new set's options (same "pin the legacy value in" handling as CSV imports -
+// see roster-table.tsx).
+export async function setTeamType(formData: FormData) {
+  const parsed = setTeamTypeSchema.parse({
+    teamId: formData.get("teamId"),
+    teamType: formData.get("teamType"),
+  });
+  const { userId } = await requireTeamAccess(parsed.teamId);
+
+  await db.update(teams).set({ teamType: parsed.teamType }).where(eq(teams.id, parsed.teamId));
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "team_type_changed",
+    details: parsed.teamType,
   });
 
   revalidatePath(`/teams/${parsed.teamId}`);

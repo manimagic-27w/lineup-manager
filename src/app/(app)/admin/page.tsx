@@ -4,6 +4,7 @@ import { listAccessibleTeams, createTeam } from "@/actions/teams";
 import { inviteOrgMember, listOrgMembers, listPendingInvitations, revokeInvitation, removeOrgMember } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES, themeSwatch } from "@/lib/utils";
+import { TEAM_TYPES } from "@/lib/db/schema";
 
 export default async function AdminPage() {
   const session = await requireOrgAdmin();
@@ -38,6 +39,9 @@ export default async function AdminPage() {
                   aria-hidden
                 />
                 <span className="font-medium text-slate-900">{team.name}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                  {TEAM_TYPES.find((t) => t.key === team.teamType)?.label ?? "Travel"}
+                </span>
               </div>
               <Link href={`/teams/${team.id}/settings`} className="text-sm text-slate-600 hover:text-brand-blue">
                 Settings →
@@ -65,6 +69,18 @@ export default async function AdminPage() {
             </label>
             <select id="theme" name="theme" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
               {THEMES.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="teamType" className="text-xs font-medium text-slate-600">
+              Team type
+            </label>
+            <select id="teamType" name="teamType" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+              {TEAM_TYPES.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
                 </option>

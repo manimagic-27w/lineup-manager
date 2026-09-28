@@ -39,6 +39,26 @@ export type Position = (typeof POSITIONS)[number];
 export const EXPERIENCE_LEVELS = ["New", "Rec", "Travel", "A", "B", "C"] as const;
 export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number];
 
+// Whether a team is a rec team or a travel team - controls which subset of EXPERIENCE_LEVELS
+// its roster's Experience dropdown offers (see EXPERIENCE_LEVELS_BY_TEAM_TYPE below). "Travel"
+// is the default so existing teams (all travel clubs so far) keep their current A/B/C levels
+// with no action needed.
+export const TEAM_TYPES = [
+  { key: "travel", label: "Travel" },
+  { key: "rec", label: "Rec" },
+] as const;
+export type TeamType = (typeof TEAM_TYPES)[number]["key"];
+
+// A rec team's roster is usually a mix of backgrounds - some kids have played travel ball,
+// some have only played rec, some are brand new - so its Experience field tracks where a
+// player is coming from. A travel team already knows everyone's background; its Experience
+// field instead levels players A/B/C for squad placement. Falls back to the travel set for any
+// unrecognized/legacy team_type value, same pattern as themeSwatch() in @/lib/utils.
+export const EXPERIENCE_LEVELS_BY_TEAM_TYPE: Record<TeamType, readonly string[]> = {
+  rec: ["Travel", "Rec", "New"],
+  travel: ["A", "B", "C"],
+};
+
 // Starting lineup slots - identical set for every team, same as the Sheets version's SLOTS array.
 export const SLOTS = [
   { key: "LA1", label: "Low Attack 1", unit: "Attack", pos: "Attack" },
@@ -72,6 +92,8 @@ export const teams = pgTable("teams", {
   orgId: text("org_id").notNull(), // Clerk organization id - the "club"
   name: text("name").notNull(),
   theme: text("theme").notNull().default("green"),
+  // "travel" or "rec" (see TEAM_TYPES) - drives which Experience levels the roster page offers.
+  teamType: text("team_type").notNull().default("travel"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });

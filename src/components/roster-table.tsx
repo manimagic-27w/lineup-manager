@@ -9,7 +9,7 @@ import {
   updateRosterFields,
 } from "@/actions/players";
 import { SubmitButton } from "@/components/submit-button";
-import { EXPERIENCE_LEVELS, POSITIONS } from "@/lib/db/schema";
+import { POSITIONS } from "@/lib/db/schema";
 
 type Player = {
   id: string;
@@ -28,7 +28,15 @@ function draftOf(player: Player): Draft {
   return { position: player.position ?? "", experience: player.experience ?? "" };
 }
 
-export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: boolean }) {
+export function RosterTable({
+  players,
+  canEdit,
+  experienceLevels,
+}: {
+  players: Player[];
+  canEdit: boolean;
+  experienceLevels: readonly string[];
+}) {
   // Every row's current Position + Experience dropdown values, keyed by player id, so both can
   // be edited in place and saved for the whole roster in one action instead of one player at a
   // time.
@@ -93,6 +101,7 @@ export function RosterTable({ players, canEdit }: { players: Player[]; canEdit: 
                 canEdit={canEdit}
                 position={d.position}
                 experience={d.experience}
+                experienceLevels={experienceLevels}
                 onPositionChange={(value) => setField(p.id, "position", value)}
                 onExperienceChange={(value) => setField(p.id, "experience", value)}
               />
@@ -131,6 +140,7 @@ function PlayerRow({
   canEdit,
   position,
   experience,
+  experienceLevels,
   onPositionChange,
   onExperienceChange,
 }: {
@@ -138,6 +148,7 @@ function PlayerRow({
   canEdit: boolean;
   position: string;
   experience: string;
+  experienceLevels: readonly string[];
   onPositionChange: (value: string) => void;
   onExperienceChange: (value: string) => void;
 }) {
@@ -178,15 +189,16 @@ function PlayerRow({
     );
   }
 
-  // A row's stored experience might not be one of EXPERIENCE_LEVELS - older free-text data, or a
-  // CSV import - in which case it's pinned in as an extra option so the dropdown shows what's
-  // actually saved instead of silently falling back to "New" and overwriting it on next save.
+  // A row's stored experience might not be one of this team's current experienceLevels - older
+  // free-text data, a CSV import, or a value left over from before the team's type was last
+  // changed - in which case it's pinned in as an extra option so the dropdown shows what's
+  // actually saved instead of silently falling back to blank and overwriting it on next save.
   // Position doesn't need this: addPlayer, updatePlayer and the CSV importer's normalizePosition
   // all already restrict it to POSITIONS, so nothing outside that list ever reaches the database.
   const experienceOptions =
-    experience && !(EXPERIENCE_LEVELS as readonly string[]).includes(experience)
-      ? [experience, ...EXPERIENCE_LEVELS]
-      : EXPERIENCE_LEVELS;
+    experience && !experienceLevels.includes(experience)
+      ? [experience, ...experienceLevels]
+      : experienceLevels;
 
   return (
     <tr className={player.archivedAt ? "text-slate-400" : ""}>

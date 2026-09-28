@@ -4,19 +4,21 @@ import { requireTeamAccess } from "@/lib/auth";
 import { RosterTable } from "@/components/roster-table";
 import { SubmitButton } from "@/components/submit-button";
 import { TeamRealtime } from "@/components/team-realtime";
-import { EXPERIENCE_LEVELS, POSITIONS } from "@/lib/db/schema";
+import { EXPERIENCE_LEVELS_BY_TEAM_TYPE, POSITIONS, TeamType } from "@/lib/db/schema";
 
 export default async function RosterPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
-  await requireTeamAccess(teamId);
+  const { team } = await requireTeamAccess(teamId);
   const players = await listRoster(teamId, { includeArchived: true });
+  const experienceLevels =
+    EXPERIENCE_LEVELS_BY_TEAM_TYPE[team.teamType as TeamType] ?? EXPERIENCE_LEVELS_BY_TEAM_TYPE.travel;
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-8 sm:px-6">
       <TeamRealtime teamId={teamId} scopes={["roster"]} />
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <RosterTable players={players} canEdit />
+        <RosterTable players={players} canEdit experienceLevels={experienceLevels} />
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -50,7 +52,7 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
             <label className="text-xs font-medium text-slate-600">Experience</label>
             <select name="experience" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
               <option value="">-</option>
-              {EXPERIENCE_LEVELS.map((level) => (
+              {experienceLevels.map((level) => (
                 <option key={level} value={level}>
                   {level}
                 </option>

@@ -7,6 +7,7 @@ const ACTION_LABELS: Record<string, string> = {
   team_created: "created the team",
   team_renamed: "renamed the team",
   team_theme_changed: "changed the team theme",
+  team_type_changed: "changed the team type",
   stats_enabled: "enabled stats tracking",
   player_added: "added a player",
   player_updated: "updated a player",

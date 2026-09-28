@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireTeamAccess } from "@/lib/auth";
-import { renameTeam, setTeamTheme } from "@/actions/teams";
+import { renameTeam, setTeamTheme, setTeamType } from "@/actions/teams";
 import { listTeamCoaches, assignCoachToTeam, removeCoachFromTeam, listOrgMembers } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES } from "@/lib/utils";
+import { TEAM_TYPES } from "@/lib/db/schema";
 
 export default async function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
@@ -46,6 +47,30 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
                 style={{ backgroundColor: team.theme === t.key ? "#f1f5f9" : undefined }}
               >
                 <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.swatch }} />
+                {t.label}
+              </button>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Team type</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Controls the Experience options on the Roster tab: a Rec team gets Travel/Rec/New (what
+          background a player is coming from), a Travel team gets A/B/C (squad level). Changing
+          this doesn&rsquo;t touch any player&rsquo;s already-saved experience value.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {TEAM_TYPES.map((t) => (
+            <form key={t.key} action={setTeamType}>
+              <input type="hidden" name="teamId" value={teamId} />
+              <input type="hidden" name="teamType" value={t.key} />
+              <button
+                type="submit"
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:border-slate-400"
+                style={{ backgroundColor: team.teamType === t.key ? "#f1f5f9" : undefined }}
+              >
                 {t.label}
               </button>
             </form>
