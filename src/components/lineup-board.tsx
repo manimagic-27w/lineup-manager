@@ -1,10 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useState } from "react";
 import { setLineupSlot } from "@/actions/games";
 import { formatGradeExperience } from "@/lib/player-labels";
 import { getBenchPlayers } from "@/lib/lineup";
 import { cn } from "@/lib/utils";
+import { saveWithRetry } from "@/lib/save-with-retry";
+import { SaveStatusIndicator, type SaveStatus } from "@/components/save-status-indicator";
 
 type Slot = { key: string; label: string; unit: string; pos: string; playerId: string | null };
 type RosterPlayer = {
@@ -54,7 +56,16 @@ export function LineupBoard({
   roster: RosterPlayer[];
   canEdit: boolean;
 }) {
-  const [, startTransition] = useTransition();
+  // assign() fires the save immediately on every change rather than behind a Save button, so
+  // on a flaky sideline connection the coach needs to see whether it actually took. saveStatus
+  // + localValue track that per slot: localValue is what the coach picked (shown instead of
+  // the server's slot.playerId while a save is in flight or has failed, so the dropdown doesn't
+  // silently snap back to the old value while waiting on a slow request); attemptSeq guards
+  // against a slow, earlier retry resolving after a newer pick for the same slot and clobbering
+  // its status.
+  const [saveStatus, setSaveStatus] = useState<Record<string, SaveStatus>>({});
+  const [localValue, setLocalValue] = useState<Record<string, string>>({});
+  const attemptSeq = useRef<Record<string, number>>({});
 
   const playerById = new Map(roster.map((p) => [p.id, p]));
   const assignedElsewhere = new Set(slots.map((s) => s.playerId).filter(Boolean) as string[]);
@@ -65,14 +76,29 @@ export function LineupBoard({
   const benchPlayers = getBenchPlayers(roster, slots);
 
   function assign(slotKey: string, playerId: string) {
+    setLocalValue((v) => ({ ...v, [slotKey]: playerId }));
+    setSaveStatus((s) => ({ ...s, [slotKey]: "saving" }));
+    const seq = (attemptSeq.current[slotKey] ?? 0) + 1;
+    attemptSeq.current[slotKey] = seq;
+
     const fd = new FormData();
     fd.set("teamId", teamId);
     fd.set("gameId", gameId);
     fd.set("slotKey", slotKey);
     if (playerId) fd.set("playerId", playerId);
-    startTransition(() => {
-      setLineupSlot(fd);
-    });
+
+    saveWithRetry(() => setLineupSlot(fd))
+      .then(() => {
+        if (attemptSeq.current[slotKey] !== seq) return; // superseded by a newer pick meanwhile
+        setSaveStatus((s) => ({ ...s, [slotKey]: "saved" }));
+        window.setTimeout(() => {
+          setSaveStatus((s) => (s[slotKey] === "saved" ? { ...s, [slotKey]: "idle" } : s));
+        }, 1500);
+      })
+      .catch(() => {
+        if (attemptSeq.current[slotKey] !== seq) return;
+        setSaveStatus((s) => ({ ...s, [slotKey]: "error" }));
+      });
   }
 
   return (
@@ -85,6 +111,12 @@ export function LineupBoard({
               {slots
                 .filter((s) => s.unit === unit)
                 .map((slot) => {
+                  const status = saveStatus[slot.key] ?? "idle";
+                  // While idle, always trust the server's slot.playerId (the normal case, and
+                  // what lets another coach's realtime update show up here). Only while a save
+                  // for this slot is in flight/failed do we override with what was picked, so
+                  // the dropdown doesn't flash back to the pre-change value mid-save.
+                  const displayValue = status === "idle" ? (slot.playerId ?? "") : (localValue[slot.key] ?? slot.playerId ?? "");
                   const assignedPlayer = slot.playerId ? playerById.get(slot.playerId) : undefined;
                   const isMaybeStarter = assignedPlayer?.status === "Maybe";
                   const isFlaggedStarter =
@@ -123,38 +155,44 @@ export function LineupBoard({
                     <li key={slot.key} className="flex items-center justify-between gap-2">
                       <span className="w-28 shrink-0 text-sm text-slate-600">{slot.label}</span>
                       {canEdit ? (
-                        <select
-                          value={slot.playerId ?? ""}
-                          onChange={(e) => assign(slot.key, e.target.value)}
-                          className={cn(
-                            "min-w-0 flex-1 truncate rounded-md border px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-1",
-                            isFlaggedStarter
-                              ? "border-red-400 bg-red-100 text-red-800"
-                              : isMaybeStarter
-                                ? "border-amber-400 bg-amber-100 text-amber-900"
-                                : slot.playerId
-                                  ? "border-slate-300 bg-white"
-                                  : "border-dashed border-slate-300 text-slate-400"
-                          )}
-                        >
-                          <option value="">Empty</option>
-                          <optgroup label={POSITION_LABEL[slot.pos] ?? slot.pos}>
-                            {onPosition.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {optionLabel(p)}
-                              </option>
-                            ))}
-                          </optgroup>
-                          {rest.length > 0 && (
-                            <optgroup label="Other positions">
-                              {rest.map((p) => (
+                        <>
+                          <select
+                            value={displayValue}
+                            onChange={(e) => assign(slot.key, e.target.value)}
+                            className={cn(
+                              "min-w-0 flex-1 truncate rounded-md border px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-1",
+                              isFlaggedStarter
+                                ? "border-red-400 bg-red-100 text-red-800"
+                                : isMaybeStarter
+                                  ? "border-amber-400 bg-amber-100 text-amber-900"
+                                  : slot.playerId
+                                    ? "border-slate-300 bg-white"
+                                    : "border-dashed border-slate-300 text-slate-400"
+                            )}
+                          >
+                            <option value="">Empty</option>
+                            <optgroup label={POSITION_LABEL[slot.pos] ?? slot.pos}>
+                              {onPosition.map((p) => (
                                 <option key={p.id} value={p.id}>
                                   {optionLabel(p)}
                                 </option>
                               ))}
                             </optgroup>
-                          )}
-                        </select>
+                            {rest.length > 0 && (
+                              <optgroup label="Other positions">
+                                {rest.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {optionLabel(p)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                          <SaveStatusIndicator
+                            status={status}
+                            onRetry={() => assign(slot.key, localValue[slot.key] ?? "")}
+                          />
+                        </>
                       ) : (
                         <span
                           className={cn(
