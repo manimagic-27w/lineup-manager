@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { requireOrgAdmin } from "@/lib/auth";
 import { listAccessibleTeams, createTeam } from "@/actions/teams";
-import { inviteOrgMember, listOrgMembers, listPendingInvitations, revokeInvitation, removeOrgMember } from "@/actions/coaches";
+import {
+  inviteOrgMember,
+  listOrgMembers,
+  listPendingInvitations,
+  revokeInvitation,
+  removeOrgMember,
+  updateMemberRole,
+} from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES, themeSwatch } from "@/lib/utils";
 import { TEAM_TYPES } from "@/lib/db/schema";
@@ -106,6 +113,15 @@ export default async function AdminPage() {
                   {m.role === "org:admin" ? "Admin" : "Coach"}
                 </span>
                 {m.userId !== session.userId && (
+                  <form action={updateMemberRole}>
+                    <input type="hidden" name="userId" value={m.userId} />
+                    <input type="hidden" name="role" value={m.role === "org:admin" ? "org:member" : "org:admin"} />
+                    <SubmitButton variant="secondary" pendingLabel="Updating…">
+                      {m.role === "org:admin" ? "Remove admin" : "Make admin"}
+                    </SubmitButton>
+                  </form>
+                )}
+                {m.userId !== session.userId && (
                   <form action={removeOrgMember}>
                     <input type="hidden" name="userId" value={m.userId} />
                     <SubmitButton variant="danger" pendingLabel="Removing…">
@@ -161,12 +177,22 @@ export default async function AdminPage() {
               ))}
             </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="role" className="text-xs font-medium text-slate-600">
+              Role
+            </label>
+            <select id="role" name="role" defaultValue="org:member" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+              <option value="org:member">Coach</option>
+              <option value="org:admin">Admin</option>
+            </select>
+          </div>
           <SubmitButton pendingLabel="Sending…">Send invite</SubmitButton>
         </form>
         <p className="mt-2 text-xs text-slate-500">
           Choosing a team assigns them to it automatically as soon as they accept - no separate
           step needed. You can still assign or change teams later from each team&rsquo;s
-          settings page.
+          settings page. An existing member&rsquo;s role can be changed anytime with the
+          Make admin / Remove admin button next to their name above.
         </p>
       </section>
     </div>

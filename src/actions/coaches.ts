@@ -121,28 +121,31 @@ export async function listPendingInvitations() {
 const inviteSchema = z.object({
   email: z.string().trim().email(),
   teamId: z.union([z.string().uuid(), z.literal("")]).optional(),
+  role: z.enum(["org:admin", "org:member"]).default("org:member"),
 });
 
 /**
- * Invites someone to the club itself (org:member). Optionally also assigns them to one team
- * in the same step - since Clerk invitations only carry an email (no user id exists until
- * they accept), that assignment is held in `pending_coach_assignments` and applied for real
- * the next time `listOrgMembers` runs after they accept. Without a team chosen here, this
- * behaves as before: assign them afterward from that team's settings page once they show up
- * in `listOrgMembers`.
+ * Invites someone to the club itself, as a regular member (coach) or - if role is set to
+ * org:admin - as a club admin from the start. Optionally also assigns them to one team in the
+ * same step - since Clerk invitations only carry an email (no user id exists until they
+ * accept), that assignment is held in `pending_coach_assignments` and applied for real the
+ * next time `listOrgMembers` runs after they accept. Without a team chosen here, this behaves
+ * as before: assign them afterward from that team's settings page once they show up in
+ * `listOrgMembers`. An existing member's role is changed with updateMemberRole above instead.
  */
 export async function inviteOrgMember(formData: FormData) {
   const session = await requireOrgAdmin();
   const parsed = inviteSchema.parse({
     email: formData.get("email"),
     teamId: formData.get("teamId") || undefined,
+    role: formData.get("role") || "org:member",
   });
   const clerk = await clerkClient();
 
   await clerk.organizations.createOrganizationInvitation({
     organizationId: session.orgId,
     emailAddress: parsed.email,
-    role: "org:member",
+    role: parsed.role,
     inviterUserId: session.userId,
     // Without this, Clerk sends the invite to its own hosted Account Portal instead of back
     // into the app.
@@ -159,6 +162,37 @@ export async function inviteOrgMember(formData: FormData) {
 
   // This is a club-level (org) invitation, not scoped to any one team, so there's no
   // `activity_log` row for it - that table is always team-scoped.
+
+  revalidatePath("/admin");
+}
+
+const updateRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["org:admin", "org:member"]),
+});
+
+/**
+ * Promotes or demotes a club member between Clerk's built-in org:admin and org:member roles
+ * (see the authorization model note atop src/lib/auth.ts). Club-level, like inviteOrgMember, so
+ * there's no activity_log row for it - that table is always team-scoped.
+ */
+export async function updateMemberRole(formData: FormData) {
+  const session = await requireOrgAdmin();
+  const parsed = updateRoleSchema.parse({
+    userId: formData.get("userId"),
+    role: formData.get("role"),
+  });
+
+  if (parsed.userId === session.userId) {
+    throw new Error("You can't change your own role.");
+  }
+
+  const clerk = await clerkClient();
+  await clerk.organizations.updateOrganizationMembership({
+    organizationId: session.orgId,
+    userId: parsed.userId,
+    role: parsed.role,
+  });
 
   revalidatePath("/admin");
 }
