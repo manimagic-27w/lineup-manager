@@ -8,6 +8,8 @@ import { LineupBoard } from "@/components/lineup-board";
 import { PrintLineupButton } from "@/components/print-lineup-button";
 import { SubmitButton } from "@/components/submit-button";
 import { TeamRealtime } from "@/components/team-realtime";
+import { GameDayCacheWriter } from "@/components/game-day-cache-writer";
+import { OfflineBanner } from "@/components/offline-banner";
 
 export default async function GameDayPage({
   params,
@@ -25,10 +27,29 @@ export default async function GameDayPage({
     listSeasons(teamId),
   ]);
   const activeRoster = roster.filter((p) => !p.archivedAt);
+  const seasonName = game.seasonId ? (seasons.find((s) => s.id === game.seasonId)?.name ?? null) : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 space-y-8 px-4 py-8 sm:px-6">
       <TeamRealtime teamId={teamId} scopes={["availability", "lineup"]} />
+      <GameDayCacheWriter
+        teamId={teamId}
+        gameId={gameId}
+        date={game.date}
+        opponent={game.opponent}
+        seasonName={seasonName}
+        roster={activeRoster.map((p) => ({
+          id: p.id,
+          name: p.name,
+          number: p.number,
+          grade: p.grade,
+          experience: p.experience,
+          position: p.position,
+          status: p.status,
+        }))}
+        slots={slots}
+      />
+      <OfflineBanner gameId={gameId} />
 
       <section className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <form action={updateGame} className="flex flex-1 flex-wrap items-end gap-3">
