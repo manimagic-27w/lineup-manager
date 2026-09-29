@@ -41,13 +41,16 @@ export async function requireOrgAdmin() {
 }
 
 /**
- * Loads a team scoped to the caller's active club and verifies the caller may see it:
- * org admins can access every team in the club; everyone else needs a `team_coaches` row.
- * Redirects to the dashboard if the team doesn't exist, belongs to a different club, or the
- * caller has no access.
+ * The actual access check behind requireTeamAccess below, split out so it can be reused
+ * somewhere that needs a plain pass/fail instead of a page redirect - specifically the Pusher
+ * channel-auth route (src/app/api/pusher/auth/route.ts), which has to answer a fetch from
+ * pusher-js with a 403, not a redirect. Returns null for "signed out," "no active org," "team
+ * doesn't exist," "team belongs to a different club," and "not an admin or assigned coach" -
+ * every one of those collapses to the same "can't see this team" outcome for the caller.
  */
-export async function requireTeamAccess(teamId: string) {
-  const session = await requireOrgSession();
+export async function checkTeamAccess(teamId: string) {
+  const session = await auth();
+  if (!session.userId || !session.orgId) return null;
   const { userId, orgId } = session;
 
   const [team] = await db
@@ -55,10 +58,7 @@ export async function requireTeamAccess(teamId: string) {
     .from(teams)
     .where(and(eq(teams.id, teamId), eq(teams.orgId, orgId)))
     .limit(1);
-
-  if (!team) {
-    redirect("/");
-  }
+  if (!team) return null;
 
   const isAdmin = session.has({ role: "org:admin" });
   if (!isAdmin) {
@@ -67,10 +67,22 @@ export async function requireTeamAccess(teamId: string) {
       .from(teamCoaches)
       .where(and(eq(teamCoaches.teamId, teamId), eq(teamCoaches.userId, userId)))
       .limit(1);
-    if (!coach) {
-      redirect("/");
-    }
+    if (!coach) return null;
   }
 
   return { team, userId, orgId, isAdmin };
+}
+
+/**
+ * Loads a team scoped to the caller's active club and verifies the caller may see it:
+ * org admins can access every team in the club; everyone else needs a `team_coaches` row.
+ * Redirects to the dashboard if the team doesn't exist, belongs to a different club, or the
+ * caller has no access.
+ */
+export async function requireTeamAccess(teamId: string) {
+  const access = await checkTeamAccess(teamId);
+  if (!access) {
+    redirect("/");
+  }
+  return access;
 }

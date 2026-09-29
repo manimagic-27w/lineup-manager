@@ -107,6 +107,13 @@ Every server action that changes a team's data calls `broadcastTeamUpdate(teamId
 subscribes to that team's Pusher channel and calls `router.refresh()` on a matching event - no
 client state to merge, no polling.
 
+Each team's channel is `private-team-<teamId>` - the `private-` prefix means Pusher won't hand
+out a subscription until `/api/pusher/auth` (`src/app/api/pusher/auth/route.ts`) approves it,
+which it only does for someone who actually has access to that team (same check as every Server
+Action). Nothing sent over the channel is ever roster/lineup content anyway, just a "something
+changed" ping - the client re-fetches the real data through the normal authenticated page
+render - but this closes off even that ping to anyone who isn't supposed to see the team.
+
 ## Project structure
 
 ```

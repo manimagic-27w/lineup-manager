@@ -14,7 +14,14 @@ function getPusherClient(): PusherClient | null {
     client = null;
     return client;
   }
-  client = new PusherClient(key, { cluster });
+  client = new PusherClient(key, {
+    cluster,
+    // Channels are named private-team-<teamId> (see teamChannel in ./realtime) specifically so
+    // Pusher requires this authorization step before handing out a subscription - it POSTs
+    // here with the socket id and channel name, and the route re-runs the same team-access
+    // check every Server Action uses before approving it.
+    channelAuthorization: { transport: "ajax", endpoint: "/api/pusher/auth" },
+  });
   return client;
 }
 
