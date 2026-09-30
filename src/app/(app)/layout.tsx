@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
-import { OrgBadge } from "@/components/org-badge";
+import { OrgSwitcher } from "@/components/org-switcher";
 import { requireOrgSession } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" aria-label="Lineup Manager home">
             <Logo className="text-xl sm:text-2xl" />
           </Link>
-          <OrgBadge />
+          <OrgSwitcher />
         </div>
         <div className="flex items-center gap-4">
           <Link href="/welcome" className="text-sm font-medium text-slate-600 hover:text-brand-blue">
