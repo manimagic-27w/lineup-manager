@@ -77,6 +77,7 @@ export default function GameDayError({ error, reset }: { error: Error & { digest
             <LineupBoard
               teamId={snapshot.teamId}
               gameId={snapshot.gameId}
+              format={snapshot.format}
               slots={snapshot.slots}
               roster={snapshot.roster}
               canEdit={false}
@@ -90,6 +91,7 @@ export default function GameDayError({ error, reset }: { error: Error & { digest
                 teamId={snapshot.teamId}
                 gameId={snapshot.gameId}
                 roster={snapshot.roster}
+                format={snapshot.format}
                 canEdit={false}
               />
             </div>

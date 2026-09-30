@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { SLOTS, POSITIONS, AVAILABILITY_STATUSES, DEFAULT_STAT_CATEGORIES } from "./schema";
+import {
+  SLOTS,
+  SIXES_SLOTS,
+  GAME_FORMATS,
+  POSITIONS,
+  AVAILABILITY_STATUSES,
+  DEFAULT_STAT_CATEGORIES,
+  leaningForPosition,
+} from "./schema";
 
 describe("SLOTS", () => {
   it("has exactly 12 lineup slots (the Sheets version's fixed roster size)", () => {
@@ -23,6 +31,45 @@ describe("SLOTS", () => {
       return acc;
     }, {});
     expect(byUnit).toEqual({ Attack: 4, Midfield: 3, Defense: 4, Goalie: 1 });
+  });
+});
+
+describe("SIXES_SLOTS", () => {
+  it("has 5 flexible field slots and 1 goalie slot", () => {
+    expect(SIXES_SLOTS).toHaveLength(6);
+    const byUnit = SIXES_SLOTS.reduce<Record<string, number>>((acc, s) => {
+      acc[s.unit] = (acc[s.unit] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(byUnit).toEqual({ Sixes: 5, Goalie: 1 });
+  });
+
+  it("has unique slot keys, and none collide with the field lineup's SLOTS keys", () => {
+    const keys = SIXES_SLOTS.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    const fieldKeys = new Set<string>(SLOTS.map((s) => s.key));
+    for (const key of keys) expect(fieldKeys.has(key)).toBe(false);
+  });
+});
+
+describe("GAME_FORMATS", () => {
+  it("is field and sixes, with field first as the default", () => {
+    expect(GAME_FORMATS).toEqual(["field", "sixes"]);
+  });
+});
+
+describe("leaningForPosition", () => {
+  it("maps each roster position to its informal sixes leaning", () => {
+    expect(leaningForPosition("Attack")).toBe("Offense-leaning");
+    expect(leaningForPosition("Mid")).toBe("Two-way");
+    expect(leaningForPosition("Def")).toBe("Defense-leaning");
+    expect(leaningForPosition("Goalie")).toBe("Goalie");
+  });
+
+  it("returns null for no position or an unrecognized one", () => {
+    expect(leaningForPosition(null)).toBeNull();
+    expect(leaningForPosition(undefined)).toBeNull();
+    expect(leaningForPosition("Something old and free-text")).toBeNull();
   });
 });
 

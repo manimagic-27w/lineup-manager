@@ -11,13 +11,24 @@ import {
   players,
   AVAILABILITY_STATUSES,
   SLOTS,
+  SIXES_SLOTS,
+  GAME_FORMATS,
+  type GameFormat,
 } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
-const SLOT_KEYS = SLOTS.map((s) => s.key) as [string, ...string[]];
+const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
+const SLOT_KEYS_BY_FORMAT: Record<GameFormat, Set<string>> = {
+  field: new Set(SLOTS.map((s) => s.key)),
+  sixes: new Set(SIXES_SLOTS.map((s) => s.key)),
+};
+
+function slotsForFormat(format: string) {
+  return format === "sixes" ? SIXES_SLOTS : SLOTS;
+}
 
 export async function listGames(teamId: string) {
   await requireTeamAccess(teamId);
@@ -42,6 +53,7 @@ const createGameSchema = z.object({
   // Empty string means "No season" - seasonId stays optional on every game.
   seasonId: z.union([z.string().uuid(), z.literal("")]),
   filmUrl: z.string().trim().max(500),
+  format: z.enum(FORMAT_KEYS).default("field"),
 });
 
 export async function createGame(formData: FormData) {
@@ -52,6 +64,7 @@ export async function createGame(formData: FormData) {
     notes: formData.get("notes") ?? "",
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
+    format: formData.get("format") || "field",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
@@ -64,6 +77,7 @@ export async function createGame(formData: FormData) {
       notes: parsed.notes,
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
+      format: parsed.format,
       createdBy: userId,
     })
     .returning();
@@ -100,6 +114,7 @@ export async function updateGame(formData: FormData) {
     notes: formData.get("notes") ?? "",
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
+    format: formData.get("format") || "field",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
@@ -111,6 +126,7 @@ export async function updateGame(formData: FormData) {
       notes: parsed.notes,
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
+      format: parsed.format,
     })
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
@@ -133,8 +149,10 @@ export async function deleteGame(formData: FormData) {
   revalidatePath(`/teams/${parsed.teamId}/games`);
 }
 
-/** Full availability + lineup view for the game-day screen. */
-export async function getGameDay(teamId: string, gameId: string) {
+/** Full availability + lineup view for the game-day screen. `format` picks which fixed slot
+ *  set (SLOTS or SIXES_SLOTS) the lineup board renders - pass the game's own `format` column
+ *  (callers already have the game row loaded before calling this). */
+export async function getGameDay(teamId: string, gameId: string, format: string = "field") {
   await requireTeamAccess(teamId);
 
   const roster = await db.select().from(players).where(eq(players.teamId, teamId)).orderBy(asc(players.name));
@@ -149,7 +167,7 @@ export async function getGameDay(teamId: string, gameId: string) {
       ...p,
       status: availabilityByPlayer.get(p.id) ?? "No Response",
     })),
-    slots: SLOTS.map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
+    slots: slotsForFormat(format).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
   };
 }
 
@@ -197,7 +215,9 @@ export async function setAvailability(formData: FormData) {
 const lineupSchema = z.object({
   teamId: z.string().uuid(),
   gameId: z.string().uuid(),
-  slotKey: z.enum(SLOT_KEYS),
+  // Validated against the game's own format below rather than a single static enum, since a
+  // valid slotKey differs between a "field" game (SLOTS) and a "sixes" game (SIXES_SLOTS).
+  slotKey: z.string().min(1),
   playerId: z.string().uuid().optional(),
 });
 
@@ -213,6 +233,15 @@ export async function setLineupSlot(formData: FormData) {
     playerId: formData.get("playerId") || undefined,
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
+
+  const [game] = await db
+    .select({ format: games.format })
+    .from(games)
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
+    .limit(1);
+  if (!game) throw new Error("Game not found.");
+  const validKeys = SLOT_KEYS_BY_FORMAT[game.format as GameFormat] ?? SLOT_KEYS_BY_FORMAT.field;
+  if (!validKeys.has(parsed.slotKey)) throw new Error("Unrecognized lineup slot for this game's format.");
 
   await db.transaction(async (tx) => {
     if (parsed.playerId) {

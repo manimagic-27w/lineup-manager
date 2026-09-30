@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "format" text DEFAULT 'field' NOT NULL;

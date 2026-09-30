@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { setLineupSlot } from "@/actions/games";
-import { formatGradeExperience } from "@/lib/player-labels";
+import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
+import { leaningForPosition } from "@/lib/db/schema";
 import { getBenchPlayers } from "@/lib/lineup";
 import { cn } from "@/lib/utils";
 import { saveWithRetry } from "@/lib/save-with-retry";
@@ -19,17 +20,30 @@ type RosterPlayer = {
   experience: string | null;
 };
 
-const UNIT_ORDER = ["Attack", "Midfield", "Defense", "Goalie"];
-const POSITION_LABEL: Record<string, string> = { Attack: "Attack", Mid: "Midfield", Def: "Defense", Goalie: "Goalie" };
+const UNIT_ORDER: Record<string, string[]> = {
+  field: ["Attack", "Midfield", "Defense", "Goalie"],
+  sixes: ["Sixes", "Goalie"],
+};
+const POSITION_LABEL: Record<string, string> = {
+  Attack: "Attack",
+  Mid: "Midfield",
+  Def: "Defense",
+  Goalie: "Goalie",
+  Sixes: "Field",
+};
 
 // After a slot's own position group, the rest of the eligible players are grouped and ordered
-// by this list (e.g. an Attack slot lists Midfield players before Defense, then Goalie).
-// A Goalie slot has no fallback at all - only goalies are ever offered for it.
+// by this list (e.g. an Attack slot lists Midfield players before Defense, then Goalie). A
+// Goalie slot has no fallback at all - only goalies are ever offered for it. A sixes "Sixes"
+// slot has no on-position group of its own (no player is ever tagged position "Sixes") - every
+// eligible field player falls into this fallback order, which conveniently also sorts them
+// Offense-leaning first, then Two-way, then Defense-leaning (see POSITION_LEANING).
 const FALLBACK_ORDER: Record<string, string[]> = {
   Attack: ["Mid", "Def", "Goalie"],
   Mid: ["Attack", "Def", "Goalie"],
   Def: ["Mid", "Attack", "Goalie"],
   Goalie: [],
+  Sixes: ["Attack", "Mid", "Def"],
 };
 
 function optionLabel(p: RosterPlayer) {
@@ -43,15 +57,34 @@ function optionLabel(p: RosterPlayer) {
   return label;
 }
 
+/** Counts of Available/Maybe field players (any status that can actually start) by their
+ *  informal sixes leaning - see POSITION_LEANING in @/lib/db/schema. Goalies are counted
+ *  separately and excluded from the offense/defense mix, same as they're excluded from every
+ *  "Sixes" slot's eligible list below. Purely informational, shown above the board so a coach
+ *  can see the shape of who's available while building a sixes lineup - never enforced. */
+function sixesComposition(roster: RosterPlayer[]) {
+  const counts = { "Offense-leaning": 0, "Two-way": 0, "Defense-leaning": 0, Goalie: 0 };
+  let total = 0;
+  for (const p of roster) {
+    if (p.status !== "Available" && p.status !== "Maybe") continue;
+    total++;
+    const leaning = leaningForPosition(p.position);
+    if (leaning && leaning in counts) counts[leaning as keyof typeof counts]++;
+  }
+  return { counts, total };
+}
+
 export function LineupBoard({
   teamId,
   gameId,
+  format,
   slots,
   roster,
   canEdit,
 }: {
   teamId: string;
   gameId: string;
+  format: string;
   slots: Slot[];
   roster: RosterPlayer[];
   canEdit: boolean;
@@ -67,6 +100,9 @@ export function LineupBoard({
   const [localValue, setLocalValue] = useState<Record<string, string>>({});
   const attemptSeq = useRef<Record<string, number>>({});
 
+  const isSixes = format === "sixes";
+  const unitOrder = UNIT_ORDER[isSixes ? "sixes" : "field"];
+
   const playerById = new Map(roster.map((p) => [p.id, p]));
   const assignedElsewhere = new Set(slots.map((s) => s.playerId).filter(Boolean) as string[]);
   // Bench = every Available/Maybe player not currently sitting in a starting slot. This is
@@ -74,6 +110,7 @@ export function LineupBoard({
   // lands back here automatically the moment their slot is cleared or handed to someone else -
   // no separate bench state to keep in sync.
   const benchPlayers = getBenchPlayers(roster, slots);
+  const composition = isSixes ? sixesComposition(roster) : null;
 
   function assign(slotKey: string, playerId: string) {
     setLocalValue((v) => ({ ...v, [slotKey]: playerId }));
@@ -103,8 +140,29 @@ export function LineupBoard({
 
   return (
     <div className="space-y-4">
+      {composition && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          <p className="font-medium text-slate-700">Available field-player mix</p>
+          <p className="mt-1">
+            {composition.counts["Offense-leaning"]} Offense-leaning · {composition.counts["Two-way"]} Two-way ·{" "}
+            {composition.counts["Defense-leaning"]} Defense-leaning · {composition.counts.Goalie} Goalie
+            {composition.counts.Goalie === 1 ? "" : "s"}
+          </p>
+          <p className="mt-1 text-slate-400">
+            Based on each player&apos;s Position on the roster - a rough guide, not a rule, since sixes expects
+            everyone to play both ways.
+          </p>
+          {composition.total > 12 && (
+            <p className="mt-1 text-amber-700">
+              World Lacrosse sixes rosters are typically capped at 12 players (including goalies) - you have{" "}
+              {composition.total} marked Available/Maybe.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {UNIT_ORDER.map((unit) => (
+        {unitOrder.map((unit) => (
           <div key={unit} className="rounded-lg border border-slate-200 bg-white p-3">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{unit}</h3>
             <ul className="space-y-2">
@@ -122,22 +180,28 @@ export function LineupBoard({
                   const isFlaggedStarter =
                     assignedPlayer?.status === "Not Available" || assignedPlayer?.status === "No Response";
                   const isGoalieSlot = slot.pos === "Goalie";
+                  const isFieldFlexSlot = slot.pos === "Sixes";
                   const fallbackOrder = FALLBACK_ORDER[slot.pos] ?? [];
 
                   // Only players who are Available or Maybe show up as choices (Not Available /
                   // No Response are hidden), except whoever is already assigned to this slot -
                   // they always stay visible here even if their status changed after being
-                  // assigned, so the coach can still see/reassign them.
+                  // assigned, so the coach can still see/reassign them. A sixes field slot also
+                  // excludes goalie-position players, mirroring how a Goalie slot only ever
+                  // offers goalies.
                   const eligible = roster.filter((p) => {
                     if (p.id === slot.playerId) return true;
                     if (assignedElsewhere.has(p.id)) return false;
+                    if (isFieldFlexSlot && p.position === "Goalie") return false;
                     return p.status === "Available" || p.status === "Maybe";
                   });
 
                   // Players whose roster position matches this slot's position ("on position")
                   // come first, separated visually from the rest. A Goalie slot only ever offers
                   // goalies at all - no fallback group - other than protecting a player already
-                  // assigned there from disappearing outright.
+                  // assigned there from disappearing outright. No player is ever tagged position
+                  // "Sixes," so a sixes field slot's "on position" group is always empty and
+                  // every eligible player falls into the fallback-ordered group instead.
                   const onPosition = eligible.filter((p) => p.position === slot.pos);
                   const rest = isGoalieSlot
                     ? eligible.filter((p) => p.position !== slot.pos && p.id === slot.playerId)
@@ -171,15 +235,17 @@ export function LineupBoard({
                             )}
                           >
                             <option value="">Empty</option>
-                            <optgroup label={POSITION_LABEL[slot.pos] ?? slot.pos}>
-                              {onPosition.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {optionLabel(p)}
-                                </option>
-                              ))}
-                            </optgroup>
+                            {onPosition.length > 0 && (
+                              <optgroup label={POSITION_LABEL[slot.pos] ?? slot.pos}>
+                                {onPosition.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {optionLabel(p)}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
                             {rest.length > 0 && (
-                              <optgroup label="Other positions">
+                              <optgroup label={isFieldFlexSlot ? "Field players" : "Other positions"}>
                                 {rest.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {optionLabel(p)}
@@ -221,17 +287,25 @@ export function LineupBoard({
           <p className="text-sm text-slate-400">Everyone eligible is in the lineup.</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {benchPlayers.map((p) => (
-              <li
-                key={p.id}
-                className={cn(
-                  "rounded-md px-2 py-1 text-sm",
-                  p.status === "Maybe" ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-700"
-                )}
-              >
-                {optionLabel(p)}
-              </li>
-            ))}
+            {benchPlayers.map((p) => {
+              const leaning = isSixes ? leaningForPosition(p.position) : null;
+              return (
+                <li
+                  key={p.id}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm",
+                    p.status === "Maybe" ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-700"
+                  )}
+                >
+                  {optionLabel(p)}
+                  {leaning && (
+                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", LEANING_STYLES[leaning])}>
+                      {leaning}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

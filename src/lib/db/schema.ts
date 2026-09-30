@@ -33,6 +33,32 @@ export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
 export const POSITIONS = ["Attack", "Mid", "Def", "Goalie"] as const;
 export type Position = (typeof POSITIONS)[number];
 
+// The bucket a lineup slot counts toward on the start-history page and in data exports. Every
+// field-lacrosse slot wants one of the four player POSITIONS above; sixes lineup slots (see
+// SIXES_SLOTS below) add a fifth "Sixes" bucket for its 5 flexible field slots, since sixes
+// deliberately has no Attack/Mid/Def distinction. A sixes game's Goalie slot still counts
+// toward the ordinary "Goalie" bucket - a goalie start is a goalie start in either format.
+export const SLOT_POSITIONS = [...POSITIONS, "Sixes"] as const;
+export type SlotPosition = (typeof SLOT_POSITIONS)[number];
+
+// Sixes lacrosse has no fixed offense/defense positions - every field player is expected to
+// play both ways (see SIXES_SLOTS below). This maps a player's regular Attack/Mid/Def/Goalie
+// position to an informal "leaning," shown on the sixes lineup board so a coach building a
+// sixes roster can see the rough offense/defense mix of who's available at a glance. It's
+// purely a display hint pulled from the same Position dropdown already on the roster page -
+// never a separate field to maintain, and never enforced.
+export const POSITION_LEANING: Record<string, string> = {
+  Attack: "Offense-leaning",
+  Mid: "Two-way",
+  Def: "Defense-leaning",
+  Goalie: "Goalie",
+};
+
+export function leaningForPosition(position: string | null | undefined): string | null {
+  if (!position) return null;
+  return POSITION_LEANING[position] ?? null;
+}
+
 // Experience/level options shown as a dropdown on the roster page. Existing players may still
 // have older free-text values (imported via CSV, or entered before this list existed) - the
 // column itself stays a plain text column so that history is never silently lost.
@@ -73,6 +99,23 @@ export const SLOTS = [
   { key: "LD1", label: "Low Defense 1", unit: "Defense", pos: "Def" },
   { key: "LD2", label: "Low Defense 2", unit: "Defense", pos: "Def" },
   { key: "G1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
+] as const;
+
+// World Lacrosse's "Sixes" format (the Olympic/PLL-Sixes style game): 6 a side, 5 field
+// players + 1 goalie, substituting on the fly, with no fixed offense/defense positions at all
+// - see POSITION_LEANING above for why. Reuses the same {key,label,unit,pos} shape as SLOTS so
+// every helper that already works on a lineup (the board, the printable sheet, start history,
+// exports) needs only to pick which array to use, not a different data shape.
+export const GAME_FORMATS = ["field", "sixes"] as const;
+export type GameFormat = (typeof GAME_FORMATS)[number];
+
+export const SIXES_SLOTS = [
+  { key: "SF1", label: "Field 1", unit: "Sixes", pos: "Sixes" },
+  { key: "SF2", label: "Field 2", unit: "Sixes", pos: "Sixes" },
+  { key: "SF3", label: "Field 3", unit: "Sixes", pos: "Sixes" },
+  { key: "SF4", label: "Field 4", unit: "Sixes", pos: "Sixes" },
+  { key: "SF5", label: "Field 5", unit: "Sixes", pos: "Sixes" },
+  { key: "SG1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
 ] as const;
 
 export const DEFAULT_STAT_CATEGORIES = [
@@ -172,6 +215,10 @@ export const games = pgTable("games", {
   date: date("date").notNull(),
   opponent: text("opponent"),
   notes: text("notes").notNull().default(""),
+  // "field" (the standard 12-slot lineup) or "sixes" (see GAME_FORMATS/SIXES_SLOTS above).
+  // Defaults to "field" so every existing game keeps its current lineup board with no action
+  // needed.
+  format: text("format").notNull().default("field"),
   // Nullable and onDelete "set null" on purpose: deleting a season should never delete its games,
   // just unassign them back to "No season."
   seasonId: uuid("season_id").references(() => seasons.id, { onDelete: "set null" }),

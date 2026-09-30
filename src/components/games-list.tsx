@@ -10,6 +10,7 @@ type Game = {
   opponent: string | null;
   seasonId: string | null;
   filmUrl: string | null;
+  format: string;
 };
 type Season = { id: string; name: string };
 
@@ -62,7 +63,14 @@ export function GamesList({ teamId, games, seasons }: { teamId: string; games: G
                   className="flex items-center justify-between px-4 py-3 hover:bg-slate-50"
                 >
                   <div>
-                    <div className="font-medium text-slate-900">{formatDate(g.date)}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">{formatDate(g.date)}</span>
+                      {g.format === "sixes" && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">
+                          Sixes
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-sm text-slate-500">
                       {g.opponent && <span>vs {g.opponent}</span>}
                       {g.filmUrl && (

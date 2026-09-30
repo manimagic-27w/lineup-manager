@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { setAvailability } from "@/actions/games";
-import { AVAILABILITY_STATUSES } from "@/lib/db/schema";
-import { formatGradeExperience } from "@/lib/player-labels";
+import { AVAILABILITY_STATUSES, leaningForPosition } from "@/lib/db/schema";
+import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
 import { cn } from "@/lib/utils";
 import { saveWithRetry } from "@/lib/save-with-retry";
 import { SaveStatusIndicator, type SaveStatus } from "@/components/save-status-indicator";
@@ -29,11 +29,13 @@ export function AvailabilityList({
   gameId,
   roster,
   canEdit,
+  format = "field",
 }: {
   teamId: string;
   gameId: string;
   roster: RosterPlayer[];
   canEdit: boolean;
+  format?: string;
 }) {
   // Same "fires immediately, needs its own feedback" situation as LineupBoard.assign - see the
   // comment there. Keyed by playerId here instead of slotKey.
@@ -82,7 +84,18 @@ export function AvailabilityList({
         <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
           <div className="min-w-0">
             <span className="font-medium text-slate-900">{p.name}</span>
-            {p.position && <span className="ml-2 text-xs text-slate-500">{p.position}</span>}
+            {format === "sixes" && leaningForPosition(p.position) ? (
+              <span
+                className={cn(
+                  "ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                  LEANING_STYLES[leaningForPosition(p.position)!]
+                )}
+              >
+                {leaningForPosition(p.position)}
+              </span>
+            ) : (
+              p.position && <span className="ml-2 text-xs text-slate-500">{p.position}</span>
+            )}
             {gradeExperience && <span className="ml-2 text-xs text-slate-500">{gradeExperience}</span>}
           </div>
           {canEdit ? (

@@ -2,15 +2,19 @@
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, lineupSlots, SLOTS, type Position } from "@/lib/db/schema";
+import { games, lineupSlots, SLOTS, SIXES_SLOTS, type SlotPosition } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
 
-const SLOT_POSITION = Object.fromEntries(SLOTS.map((s) => [s.key, s.pos])) as Record<
+// Covers both formats' slots so a sixes game's starts show up here just like a field game's -
+// see SlotPosition in @/lib/db/schema for why sixes needs its own "Sixes" bucket alongside the
+// four regular positions (its Goalie slot still rolls into the ordinary Goalie bucket, though).
+const ALL_SLOTS = [...SLOTS, ...SIXES_SLOTS];
+const SLOT_POSITION = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.pos])) as Record<
   string,
-  Position
+  SlotPosition
 >;
-const SLOT_LABEL = Object.fromEntries(SLOTS.map((s) => [s.key, s.label])) as Record<
+const SLOT_LABEL = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.label])) as Record<
   string,
   string
 >;
@@ -19,7 +23,7 @@ export type StartRecord = {
   gameId: string;
   date: string;
   opponent: string | null;
-  position: Position;
+  position: SlotPosition;
   slotLabel: string;
 };
 
@@ -29,7 +33,7 @@ export type PlayerStartHistory = {
   number: string | null;
   archived: boolean;
   totalStarts: number;
-  countsByPosition: Record<Position, number>;
+  countsByPosition: Record<SlotPosition, number>;
   /** Most recent game first. */
   starts: StartRecord[];
 };
@@ -38,9 +42,11 @@ export type PlayerStartHistory = {
  * Every player's history of starts by position - "started" here means they held a lineup slot
  * for that game (see lineupSlots; a player holds at most one slot per game, enforced by the DB's
  * one_slot_per_player index). Grouped into the same broad position buckets as the roster page's
- * Position field (Attack/Mid/Def/Goalie) rather than the individual slot (Low Attack 1 vs High
- * Attack 2) - the point is spotting where a player has actually played over a season, not
- * re-deriving the lineup board. Includes archived players, since this is history, not a roster.
+ * Position field (Attack/Mid/Def/Goalie), plus a fifth "Sixes" bucket for sixes-format games'
+ * 5 flexible field slots (see SlotPosition in @/lib/db/schema), rather than the individual slot
+ * (Low Attack 1 vs High Attack 2) - the point is spotting where a player has actually played
+ * over a season, not re-deriving the lineup board. Includes archived players, since this is
+ * history, not a roster.
  */
 export async function getStartHistory(teamId: string): Promise<PlayerStartHistory[]> {
   await requireTeamAccess(teamId);
@@ -85,7 +91,7 @@ export async function getStartHistory(teamId: string): Promise<PlayerStartHistor
   // order, so each player's list is sorted independently.
   return roster.map((p) => {
     const starts = (startsByPlayer.get(p.id) ?? []).sort((a, b) => (a.date < b.date ? 1 : -1));
-    const countsByPosition: Record<Position, number> = { Attack: 0, Mid: 0, Def: 0, Goalie: 0 };
+    const countsByPosition: Record<SlotPosition, number> = { Attack: 0, Mid: 0, Def: 0, Goalie: 0, Sixes: 0 };
     for (const s of starts) countsByPosition[s.position]++;
 
     return {

@@ -4,7 +4,10 @@ import { requireTeamAccess } from "@/lib/auth";
 import { getBenchPlayers } from "@/lib/lineup";
 import { PrintButton } from "@/components/print-button";
 
-const UNIT_ORDER = ["Attack", "Midfield", "Defense", "Goalie"];
+const UNIT_ORDER_BY_FORMAT: Record<string, string[]> = {
+  field: ["Attack", "Midfield", "Defense", "Goalie"],
+  sixes: ["Sixes", "Goalie"],
+};
 
 /**
  * A clean, print-only view of one game's lineup + bench - a separate route (rather than print
@@ -23,10 +26,11 @@ export default async function LineupPrintPage({
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const { roster, slots } = await getGameDay(teamId, gameId);
+  const { roster, slots } = await getGameDay(teamId, gameId, game.format);
   const activeRoster = roster.filter((p) => !p.archivedAt);
   const playerById = new Map(activeRoster.map((p) => [p.id, p]));
   const bench = getBenchPlayers(activeRoster, slots);
+  const unitOrder = UNIT_ORDER_BY_FORMAT[game.format] ?? UNIT_ORDER_BY_FORMAT.field;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8 sm:px-6 print:max-w-none print:space-y-4 print:px-0 print:py-0">
@@ -47,7 +51,7 @@ export default async function LineupPrintPage({
       </header>
 
       <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 print:grid-cols-2 print:gap-4">
-        {UNIT_ORDER.map((unit) => (
+        {unitOrder.map((unit) => (
           <div key={unit}>
             <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
               {unit}

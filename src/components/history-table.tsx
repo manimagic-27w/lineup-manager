@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import type { PlayerStartHistory } from "@/actions/history";
-import { POSITIONS } from "@/lib/db/schema";
+import { SLOT_POSITIONS } from "@/lib/db/schema";
 import { cn, formatDate } from "@/lib/utils";
 
 export function HistoryTable({ players }: { players: PlayerStartHistory[] }) {
@@ -30,7 +30,7 @@ export function HistoryTable({ players }: { players: PlayerStartHistory[] }) {
         <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
           <tr>
             <th className="px-4 py-2">Player</th>
-            {POSITIONS.map((pos) => (
+            {SLOT_POSITIONS.map((pos) => (
               <th key={pos} className="px-4 py-2 text-center">
                 {pos}
               </th>
@@ -55,7 +55,7 @@ export function HistoryTable({ players }: { players: PlayerStartHistory[] }) {
                     {p.name}
                     {p.number ? ` #${p.number}` : ""}
                   </td>
-                  {POSITIONS.map((pos) => (
+                  {SLOT_POSITIONS.map((pos) => (
                     <td key={pos} className="px-4 py-2 text-center">
                       {p.countsByPosition[pos] > 0 ? p.countsByPosition[pos] : "-"}
                     </td>
@@ -64,7 +64,7 @@ export function HistoryTable({ players }: { players: PlayerStartHistory[] }) {
                 </tr>
                 {isOpen && (
                   <tr key={`${p.playerId}-detail`} className="bg-slate-50">
-                    <td colSpan={POSITIONS.length + 2} className="px-4 py-3">
+                    <td colSpan={SLOT_POSITIONS.length + 2} className="px-4 py-3">
                       {p.starts.length === 0 ? (
                         <p className="text-xs text-slate-500">No starts recorded yet.</p>
                       ) : (

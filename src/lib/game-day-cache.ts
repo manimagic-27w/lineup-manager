@@ -31,6 +31,7 @@ export type GameDaySnapshot = {
   date: string;
   opponent: string | null;
   seasonName: string | null;
+  format: string;
   roster: GameDaySnapshotPlayer[];
   slots: GameDaySnapshotSlot[];
   savedAt: number;

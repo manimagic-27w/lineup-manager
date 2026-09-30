@@ -37,3 +37,13 @@ export function formatGradeExperience(
   if (!trimmedGrade && !expLetter) return null;
   return `${trimmedGrade ?? ""}${expLetter ?? ""}`;
 }
+// Badge colors for the informal offense/defense "leaning" shown on the sixes lineup board -
+// see POSITION_LEANING/leaningForPosition in @/lib/db/schema for where the label itself comes
+// from. Kept here, next to formatGradeExperience, since both are purely display concerns
+// shared by LineupBoard and AvailabilityList.
+export const LEANING_STYLES: Record<string, string> = {
+  "Offense-leaning": "bg-orange-100 text-orange-800",
+  "Two-way": "bg-blue-100 text-blue-800",
+  "Defense-leaning": "bg-purple-100 text-purple-800",
+  Goalie: "bg-slate-200 text-slate-700",
+};

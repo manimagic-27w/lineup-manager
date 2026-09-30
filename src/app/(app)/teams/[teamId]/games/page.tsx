@@ -47,6 +47,13 @@ export default async function GamesPage({ params }: { params: Promise<{ teamId: 
             </div>
           )}
           <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600">Format</label>
+            <select name="format" defaultValue="field" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="field">Field (12 starters)</option>
+              <option value="sixes">Sixes (6 a side)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Notes</label>
             <input name="notes" className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
           </div>

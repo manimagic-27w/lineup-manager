@@ -23,7 +23,7 @@ export default async function GameDayPage({
   if (!game) notFound();
 
   const [{ roster, slots }, seasons] = await Promise.all([
-    getGameDay(teamId, gameId),
+    getGameDay(teamId, gameId, game.format),
     listSeasons(teamId),
   ]);
   const activeRoster = roster.filter((p) => !p.archivedAt);
@@ -38,6 +38,7 @@ export default async function GameDayPage({
         date={game.date}
         opponent={game.opponent}
         seasonName={seasonName}
+        format={game.format}
         roster={activeRoster.map((p) => ({
           id: p.id,
           name: p.name,
@@ -91,6 +92,17 @@ export default async function GameDayPage({
             </div>
           )}
           <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600">Format</label>
+            <select
+              name="format"
+              defaultValue={game.format}
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            >
+              <option value="field">Field (12 starters)</option>
+              <option value="sixes">Sixes (6 a side)</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Game film link</label>
             <input
               name="filmUrl"
@@ -127,7 +139,7 @@ export default async function GameDayPage({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
         <section>
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
-          <LineupBoard teamId={teamId} gameId={gameId} slots={slots} roster={activeRoster} canEdit />
+          <LineupBoard teamId={teamId} gameId={gameId} format={game.format} slots={slots} roster={activeRoster} canEdit />
 
           <form action={updateGame} className="mt-4">
             <input type="hidden" name="teamId" value={teamId} />
@@ -135,6 +147,7 @@ export default async function GameDayPage({
             <input type="hidden" name="date" value={game.date} />
             <input type="hidden" name="opponent" value={game.opponent ?? ""} />
             <input type="hidden" name="seasonId" value={game.seasonId ?? ""} />
+            <input type="hidden" name="format" value={game.format} />
             <input type="hidden" name="filmUrl" value={game.filmUrl ?? ""} />
             <label htmlFor="game-notes" className="mb-1 block text-xs font-medium text-slate-600">
               Notes
@@ -158,7 +171,7 @@ export default async function GameDayPage({
         <section className="lg:sticky lg:top-6">
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} canEdit />
+            <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} format={game.format} canEdit />
           </div>
         </section>
       </div>

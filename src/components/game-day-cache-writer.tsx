@@ -15,6 +15,7 @@ export function GameDayCacheWriter({
   date,
   opponent,
   seasonName,
+  format,
   roster,
   slots,
 }: {
@@ -23,6 +24,7 @@ export function GameDayCacheWriter({
   date: string;
   opponent: string | null;
   seasonName: string | null;
+  format: string;
   roster: GameDaySnapshotPlayer[];
   slots: GameDaySnapshotSlot[];
 }) {
@@ -33,9 +35,9 @@ export function GameDayCacheWriter({
   const slotsKey = JSON.stringify(slots);
 
   useEffect(() => {
-    saveGameDaySnapshot({ gameId, teamId, date, opponent, seasonName, roster, slots });
+    saveGameDaySnapshot({ gameId, teamId, date, opponent, seasonName, format, roster, slots });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, teamId, date, opponent, seasonName, rosterKey, slotsKey]);
+  }, [gameId, teamId, date, opponent, seasonName, format, rosterKey, slotsKey]);
 
   return null;
 }
