@@ -7,6 +7,7 @@ import { PrintButton } from "@/components/print-button";
 const UNIT_ORDER_BY_FORMAT: Record<string, string[]> = {
   field: ["Attack", "Midfield", "Defense", "Goalie"],
   sixes: ["Sixes", "Goalie"],
+  sevens: ["Attack", "Midfield", "Defense", "Goalie"],
 };
 
 /**

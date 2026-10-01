@@ -23,6 +23,9 @@ type RosterPlayer = {
 const UNIT_ORDER: Record<string, string[]> = {
   field: ["Attack", "Midfield", "Defense", "Goalie"],
   sixes: ["Sixes", "Goalie"],
+  // Sevens keeps the normal Attack/Mid/Def/Goalie groups, same order as field - just fewer
+  // slots in each (see SEVENS_SLOTS in @/lib/db/schema).
+  sevens: ["Attack", "Midfield", "Defense", "Goalie"],
 };
 const POSITION_LABEL: Record<string, string> = {
   Attack: "Attack",
@@ -101,7 +104,7 @@ export function LineupBoard({
   const attemptSeq = useRef<Record<string, number>>({});
 
   const isSixes = format === "sixes";
-  const unitOrder = UNIT_ORDER[isSixes ? "sixes" : "field"];
+  const unitOrder = UNIT_ORDER[format] ?? UNIT_ORDER.field;
 
   const playerById = new Map(roster.map((p) => [p.id, p]));
   const assignedElsewhere = new Set(slots.map((s) => s.playerId).filter(Boolean) as string[]);

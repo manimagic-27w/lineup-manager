@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SLOTS,
   SIXES_SLOTS,
+  SEVENS_SLOTS,
   GAME_FORMATS,
   POSITIONS,
   AVAILABILITY_STATUSES,
@@ -52,9 +53,33 @@ describe("SIXES_SLOTS", () => {
   });
 });
 
+describe("SEVENS_SLOTS", () => {
+  it("has 2 attack, 3 midfield, 2 defense, and 1 goalie slot", () => {
+    expect(SEVENS_SLOTS).toHaveLength(8);
+    const byUnit = SEVENS_SLOTS.reduce<Record<string, number>>((acc, s) => {
+      acc[s.unit] = (acc[s.unit] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(byUnit).toEqual({ Attack: 2, Midfield: 3, Defense: 2, Goalie: 1 });
+  });
+
+  it("only uses positions from the shared POSITIONS list, unlike SIXES_SLOTS", () => {
+    for (const slot of SEVENS_SLOTS) {
+      expect(POSITIONS as readonly string[]).toContain(slot.pos);
+    }
+  });
+
+  it("has unique slot keys, and none collide with SLOTS or SIXES_SLOTS keys", () => {
+    const keys = SEVENS_SLOTS.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    const otherKeys = new Set<string>([...SLOTS, ...SIXES_SLOTS].map((s) => s.key));
+    for (const key of keys) expect(otherKeys.has(key)).toBe(false);
+  });
+});
+
 describe("GAME_FORMATS", () => {
-  it("is field and sixes, with field first as the default", () => {
-    expect(GAME_FORMATS).toEqual(["field", "sixes"]);
+  it("is field, sixes, and sevens, with field first as the default", () => {
+    expect(GAME_FORMATS).toEqual(["field", "sixes", "sevens"]);
   });
 });
 

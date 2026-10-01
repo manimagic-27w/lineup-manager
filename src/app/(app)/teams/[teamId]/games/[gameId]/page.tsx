@@ -99,6 +99,7 @@ export default async function GameDayPage({
               className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             >
               <option value="field">Field (12 starters)</option>
+              <option value="sevens">Sevens (8 a side)</option>
               <option value="sixes">Sixes (6 a side)</option>
             </select>
           </div>

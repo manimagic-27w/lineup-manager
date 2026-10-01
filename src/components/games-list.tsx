@@ -65,9 +65,9 @@ export function GamesList({ teamId, games, seasons }: { teamId: string; games: G
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-slate-900">{formatDate(g.date)}</span>
-                      {g.format === "sixes" && (
+                      {g.format !== "field" && (
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">
-                          Sixes
+                          {g.format === "sixes" ? "Sixes" : "Sevens"}
                         </span>
                       )}
                     </div>

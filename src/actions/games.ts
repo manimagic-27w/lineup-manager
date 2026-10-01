@@ -12,6 +12,7 @@ import {
   AVAILABILITY_STATUSES,
   SLOTS,
   SIXES_SLOTS,
+  SEVENS_SLOTS,
   GAME_FORMATS,
   type GameFormat,
 } from "@/lib/db/schema";
@@ -21,13 +22,19 @@ import { broadcastTeamUpdate } from "@/lib/pusher-server";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
+const SLOTS_BY_FORMAT: Record<GameFormat, typeof SLOTS | typeof SIXES_SLOTS | typeof SEVENS_SLOTS> = {
+  field: SLOTS,
+  sixes: SIXES_SLOTS,
+  sevens: SEVENS_SLOTS,
+};
 const SLOT_KEYS_BY_FORMAT: Record<GameFormat, Set<string>> = {
   field: new Set(SLOTS.map((s) => s.key)),
   sixes: new Set(SIXES_SLOTS.map((s) => s.key)),
+  sevens: new Set(SEVENS_SLOTS.map((s) => s.key)),
 };
 
 function slotsForFormat(format: string) {
-  return format === "sixes" ? SIXES_SLOTS : SLOTS;
+  return SLOTS_BY_FORMAT[format as GameFormat] ?? SLOTS;
 }
 
 export async function listGames(teamId: string) {

@@ -2,14 +2,16 @@
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, lineupSlots, SLOTS, SIXES_SLOTS, type SlotPosition } from "@/lib/db/schema";
+import { games, lineupSlots, SLOTS, SIXES_SLOTS, SEVENS_SLOTS, type SlotPosition } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
 
-// Covers both formats' slots so a sixes game's starts show up here just like a field game's -
-// see SlotPosition in @/lib/db/schema for why sixes needs its own "Sixes" bucket alongside the
-// four regular positions (its Goalie slot still rolls into the ordinary Goalie bucket, though).
-const ALL_SLOTS = [...SLOTS, ...SIXES_SLOTS];
+// Covers every format's slots so a sixes or sevens game's starts show up here just like a
+// field game's - see SlotPosition in @/lib/db/schema for why sixes needs its own "Sixes"
+// bucket alongside the four regular positions (its Goalie slot still rolls into the ordinary
+// Goalie bucket, though). Sevens slots use the same Attack/Mid/Def/Goalie positions as field,
+// so they need no bucket of their own.
+const ALL_SLOTS = [...SLOTS, ...SIXES_SLOTS, ...SEVENS_SLOTS];
 const SLOT_POSITION = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.pos])) as Record<
   string,
   SlotPosition

@@ -106,7 +106,7 @@ export const SLOTS = [
 // - see POSITION_LEANING above for why. Reuses the same {key,label,unit,pos} shape as SLOTS so
 // every helper that already works on a lineup (the board, the printable sheet, start history,
 // exports) needs only to pick which array to use, not a different data shape.
-export const GAME_FORMATS = ["field", "sixes"] as const;
+export const GAME_FORMATS = ["field", "sixes", "sevens"] as const;
 export type GameFormat = (typeof GAME_FORMATS)[number];
 
 export const SIXES_SLOTS = [
@@ -116,6 +116,22 @@ export const SIXES_SLOTS = [
   { key: "SF4", label: "Field 4", unit: "Sixes", pos: "Sixes" },
   { key: "SF5", label: "Field 5", unit: "Sixes", pos: "Sixes" },
   { key: "SG1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
+] as const;
+
+// "7s" - unlike Sixes, this format keeps the normal Attack/Mid/Def/Goalie positions, just
+// fewer of each (2/3/2/1 = 7 field players + 1 goalie). Its slots reuse the exact same
+// unit/pos values as SLOTS (not a new "Sixes"-style bucket), so every helper that groups or
+// labels by position - the board, the printable sheet, start history, exports - already
+// handles a sevens game correctly with no sevens-specific branching.
+export const SEVENS_SLOTS = [
+  { key: "7A1", label: "Attack 1", unit: "Attack", pos: "Attack" },
+  { key: "7A2", label: "Attack 2", unit: "Attack", pos: "Attack" },
+  { key: "7M1", label: "Middie 1", unit: "Midfield", pos: "Mid" },
+  { key: "7M2", label: "Middie 2", unit: "Midfield", pos: "Mid" },
+  { key: "7M3", label: "Middie 3", unit: "Midfield", pos: "Mid" },
+  { key: "7D1", label: "Defense 1", unit: "Defense", pos: "Def" },
+  { key: "7D2", label: "Defense 2", unit: "Defense", pos: "Def" },
+  { key: "7G1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
 ] as const;
 
 export const DEFAULT_STAT_CATEGORIES = [
@@ -215,7 +231,7 @@ export const games = pgTable("games", {
   date: date("date").notNull(),
   opponent: text("opponent"),
   notes: text("notes").notNull().default(""),
-  // "field" (the standard 12-slot lineup) or "sixes" (see GAME_FORMATS/SIXES_SLOTS above).
+  // "field" (12 slots), "sixes" (6: see SIXES_SLOTS), or "sevens" (8: see SEVENS_SLOTS).
   // Defaults to "field" so every existing game keeps its current lineup board with no action
   // needed.
   format: text("format").notNull().default("field"),
