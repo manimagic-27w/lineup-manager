@@ -138,7 +138,12 @@ export async function updateGame(formData: FormData) {
     })
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
-  await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "game_updated", details: parsed.date });
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "game_updated",
+    details: `${parsed.date}${parsed.opponent ? ` vs ${parsed.opponent}` : ""}`,
+  });
   await broadcastTeamUpdate(parsed.teamId, "games", parsed.gameId);
   revalidatePath(`/teams/${parsed.teamId}/games`);
   revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
@@ -150,9 +155,21 @@ export async function deleteGame(formData: FormData) {
   const parsed = deleteGameSchema.parse({ teamId: formData.get("teamId"), gameId: formData.get("gameId") });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
+  // Read the game before it's gone so the log can say which one it was (date / opponent).
+  const [existing] = await db
+    .select({ date: games.date, opponent: games.opponent })
+    .from(games)
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
+    .limit(1);
+
   await db.delete(games).where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
-  await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "game_deleted", details: parsed.gameId });
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "game_deleted",
+    details: existing ? `${existing.date}${existing.opponent ? ` vs ${existing.opponent}` : ""}` : undefined,
+  });
   await broadcastTeamUpdate(parsed.teamId, "games");
   revalidatePath(`/teams/${parsed.teamId}/games`);
   // The only place this is called from is the deleted game's own page. Without a redirect,
@@ -218,7 +235,8 @@ export async function setAvailability(formData: FormData) {
     teamId: parsed.teamId,
     actorUserId: userId,
     action: "availability_set",
-    details: `${parsed.playerId}: ${parsed.status}`,
+    // JSON so the activity feed can show the player and game by name, not by id.
+    details: JSON.stringify({ playerId: parsed.playerId, gameId: parsed.gameId, status: parsed.status }),
   });
   await broadcastTeamUpdate(parsed.teamId, "availability", parsed.gameId);
   revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
@@ -275,7 +293,7 @@ export async function setLineupSlot(formData: FormData) {
     teamId: parsed.teamId,
     actorUserId: userId,
     action: "lineup_set",
-    details: `${parsed.slotKey}: ${parsed.playerId ?? "empty"}`,
+    details: JSON.stringify({ gameId: parsed.gameId, slotKey: parsed.slotKey, playerId: parsed.playerId ?? null }),
   });
   await broadcastTeamUpdate(parsed.teamId, "lineup", parsed.gameId);
   revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);

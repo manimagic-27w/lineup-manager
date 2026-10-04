@@ -3,30 +3,6 @@ import { listActivity } from "@/actions/activity";
 import { requireTeamAccess } from "@/lib/auth";
 import { TeamRealtime } from "@/components/team-realtime";
 
-const ACTION_LABELS: Record<string, string> = {
-  team_created: "created the team",
-  team_renamed: "renamed the team",
-  team_theme_changed: "changed the team theme",
-  team_type_changed: "changed the team type",
-  stats_enabled: "enabled stats tracking",
-  player_added: "added a player",
-  player_updated: "updated a player",
-  player_archived: "archived a player",
-  player_restored: "restored a player",
-  roster_imported: "imported the roster",
-  game_created: "scheduled a game",
-  game_updated: "updated a game",
-  game_deleted: "deleted a game",
-  availability_set: "updated availability",
-  lineup_set: "updated the lineup",
-  stat_category_added: "added a stat category",
-  stat_category_removed: "removed a stat category",
-  season_created: "created a season",
-  season_deleted: "deleted a season",
-  coach_assigned: "assigned a coach",
-  coach_removed: "removed a coach",
-};
-
 export default async function ActivityPage({
   params,
   searchParams,
@@ -53,8 +29,7 @@ export default async function ActivityPage({
             {entries.map((e) => (
               <li key={e.id} className="px-4 py-3 text-sm">
                 <span className="font-medium text-slate-900">{e.actorName}</span>{" "}
-                <span className="text-slate-600">{ACTION_LABELS[e.action] ?? e.action}</span>
-                {e.details && <span className="text-slate-500"> - {e.details}</span>}
+                <span className="text-slate-600">{e.description}</span>
                 <div className="mt-0.5 text-xs text-slate-400">
                   {new Date(e.createdAt).toLocaleString()}
                 </div>
