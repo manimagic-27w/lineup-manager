@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import {
   games,
@@ -154,6 +155,10 @@ export async function deleteGame(formData: FormData) {
   await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "game_deleted", details: parsed.gameId });
   await broadcastTeamUpdate(parsed.teamId, "games");
   revalidatePath(`/teams/${parsed.teamId}/games`);
+  // The only place this is called from is the deleted game's own page. Without a redirect,
+  // Next re-renders that same URL after the action finishes, getGame() comes back null, and the
+  // coach lands on a 404 even though the delete worked - so send them back to the schedule.
+  redirect(`/teams/${parsed.teamId}/games`);
 }
 
 /** Full availability + lineup view for the game-day screen. `format` picks which fixed slot
