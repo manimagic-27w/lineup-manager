@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ensureHttpUrl, formatDate } from "@/lib/utils";
+import { computeRecord, formatRecord, gameOutcome } from "@/lib/game-record";
 
 type Game = {
   id: string;
@@ -11,10 +12,19 @@ type Game = {
   seasonId: string | null;
   filmUrl: string | null;
   format: string;
+  ourScore: number | null;
+  opponentScore: number | null;
+  isFriendly: boolean;
 };
 type Season = { id: string; name: string };
 
 const NO_SEASON = "__none__";
+
+const OUTCOME_STYLES = {
+  W: "bg-green-100 text-green-800",
+  L: "bg-red-100 text-red-800",
+  T: "bg-slate-200 text-slate-700",
+} as const;
 
 export function GamesList({ teamId, games, seasons }: { teamId: string; games: Game[]; seasons: Season[] }) {
   const [filter, setFilter] = useState("");
@@ -25,8 +35,23 @@ export function GamesList({ teamId, games, seasons }: { teamId: string; games: G
     return games.filter((g) => g.seasonId === filter);
   }, [games, filter]);
 
+  // Follows the season filter, so picking "Fall 2026" shows that season's record.
+  const record = useMemo(() => computeRecord(filtered), [filtered]);
+  const hasResults = record.wins + record.losses + record.ties + record.friendlies > 0;
+
   return (
     <div className="space-y-3">
+      {hasResults && (
+        <div className="flex flex-wrap items-baseline gap-x-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <span className="text-xs font-medium uppercase text-slate-500">Record</span>
+          <span className="text-xl font-bold tabular-nums text-slate-900">{formatRecord(record)}</span>
+          {record.friendlies > 0 && (
+            <span className="text-xs text-slate-500">
+              {record.friendlies} friendl{record.friendlies === 1 ? "y" : "ies"} not counted
+            </span>
+          )}
+        </div>
+      )}
       {seasons.length > 0 && (
         <div className="flex items-center gap-2">
           <label htmlFor="season-filter" className="text-xs font-medium text-slate-600">
@@ -65,6 +90,11 @@ export function GamesList({ teamId, games, seasons }: { teamId: string; games: G
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-slate-900">{formatDate(g.date)}</span>
+                      {g.isFriendly && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                          Friendly
+                        </span>
+                      )}
                       {g.format !== "field" && (
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">
                           {g.format === "sixes" ? "Sixes" : "Sevens"}
@@ -86,7 +116,20 @@ export function GamesList({ teamId, games, seasons }: { teamId: string; games: G
                       )}
                     </div>
                   </div>
-                  <span className="text-sm text-slate-400">→</span>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const outcome = gameOutcome(g);
+                      return outcome ? (
+                        <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums text-slate-900">
+                          <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${OUTCOME_STYLES[outcome]}`}>
+                            {outcome}
+                          </span>
+                          {g.ourScore}&ndash;{g.opponentScore}
+                        </span>
+                      ) : null;
+                    })()}
+                    <span className="text-sm text-slate-400">→</span>
+                  </div>
                 </Link>
               </li>
             ))}

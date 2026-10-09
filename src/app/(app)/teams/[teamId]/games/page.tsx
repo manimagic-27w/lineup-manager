@@ -58,6 +58,10 @@ export default async function GamesPage({ params }: { params: Promise<{ teamId: 
             <label className="text-xs font-medium text-slate-600">Notes</label>
             <input name="notes" className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
           </div>
+          <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
+            <input type="checkbox" name="isFriendly" className="h-4 w-4" />
+            Friendly
+          </label>
           <SubmitButton pendingLabel="Scheduling…">Add game</SubmitButton>
         </form>
       </section>

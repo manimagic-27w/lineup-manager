@@ -62,6 +62,7 @@ const createGameSchema = z.object({
   seasonId: z.union([z.string().uuid(), z.literal("")]),
   filmUrl: z.string().trim().max(500),
   format: z.enum(FORMAT_KEYS).default("field"),
+  isFriendly: z.boolean().default(false),
 });
 
 export async function createGame(formData: FormData) {
@@ -73,6 +74,7 @@ export async function createGame(formData: FormData) {
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
     format: formData.get("format") || "field",
+    isFriendly: formData.get("isFriendly") === "on",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
 
@@ -86,6 +88,7 @@ export async function createGame(formData: FormData) {
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
       format: parsed.format,
+      isFriendly: parsed.isFriendly,
       createdBy: userId,
     })
     .returning();
@@ -111,7 +114,56 @@ export async function createGame(formData: FormData) {
   revalidatePath(`/teams/${parsed.teamId}/games`);
 }
 
-const updateGameSchema = createGameSchema.extend({ gameId: z.string().uuid() });
+// updateGame (the details form) never touches the score or friendly flag - those are owned by
+// setGameResult below - so omit isFriendly here to keep a details save from resetting it.
+const updateGameSchema = createGameSchema.omit({ isFriendly: true }).extend({ gameId: z.string().uuid() });
+
+const scoreField = z.union([z.literal(""), z.coerce.number().int().min(0).max(999)]);
+
+const resultSchema = z.object({
+  teamId: z.string().uuid(),
+  gameId: z.string().uuid(),
+  ourScore: scoreField,
+  opponentScore: scoreField,
+  isFriendly: z.boolean(),
+});
+
+/** Records (or clears) a game's final score and whether it's a friendly. Both scores must be
+ *  filled in together, or both left blank to clear the result. A friendly keeps its score but
+ *  is excluded from the team record (see lib/game-record.ts). */
+export async function setGameResult(formData: FormData) {
+  const parsed = resultSchema.parse({
+    teamId: formData.get("teamId"),
+    gameId: formData.get("gameId"),
+    ourScore: formData.get("ourScore") ?? "",
+    opponentScore: formData.get("opponentScore") ?? "",
+    isFriendly: formData.get("isFriendly") === "on",
+  });
+  const { userId } = await requireTeamAccess(parsed.teamId);
+
+  const hasOur = parsed.ourScore !== "";
+  const hasOpp = parsed.opponentScore !== "";
+  if (hasOur !== hasOpp) throw new Error("Enter both scores, or leave both blank to clear the result.");
+  const ourScore = hasOur ? Number(parsed.ourScore) : null;
+  const opponentScore = hasOpp ? Number(parsed.opponentScore) : null;
+
+  const updated = await db
+    .update(games)
+    .set({ ourScore, opponentScore, isFriendly: parsed.isFriendly })
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
+    .returning({ id: games.id });
+  if (updated.length === 0) throw new Error("Game not found.");
+
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "game_result_set",
+    details: JSON.stringify({ gameId: parsed.gameId, ourScore, opponentScore, isFriendly: parsed.isFriendly }),
+  });
+  await broadcastTeamUpdate(parsed.teamId, "games", parsed.gameId);
+  revalidatePath(`/teams/${parsed.teamId}/games`);
+  revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
+}
 
 export async function updateGame(formData: FormData) {
   const parsed = updateGameSchema.parse({

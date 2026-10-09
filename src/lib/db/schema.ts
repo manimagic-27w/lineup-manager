@@ -17,6 +17,7 @@ import {
   date,
   numeric,
   integer,
+  boolean,
   primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -242,6 +243,13 @@ export const games = pgTable("games", {
   // free text rather than a strict URL type so an already-pasted link never fails to save; the UI
   // is responsible for treating it as a link when rendering it.
   filmUrl: text("film_url"),
+  // Final score, entered after the game. Both null until a result is recorded; they are always
+  // set together (see setGameResult). ourScore is this team's goals, whichever side was "home".
+  ourScore: integer("our_score"),
+  opponentScore: integer("opponent_score"),
+  // A friendly (scrimmage / exhibition) still gets a score but is left out of the team's
+  // win-loss record. Defaults to false so every existing game keeps counting as it does today.
+  isFriendly: boolean("is_friendly").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(),
 });

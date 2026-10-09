@@ -55,6 +55,16 @@ describe("describeActivity", () => {
     expect(describeActivity("game_deleted", "", refs())).toBe("deleted a game");
   });
 
+  it("describes game results, friendlies and cleared scores", () => {
+    const set = describeActivity("game_result_set", JSON.stringify({ gameId: G1, ourScore: 12, opponentScore: 8, isFriendly: false }), refs());
+    expect(set).toContain("recorded a final score of 12-8 for the game on");
+    expect(set).toContain("vs Eagles");
+    const friendly = describeActivity("game_result_set", JSON.stringify({ gameId: G1, ourScore: 3, opponentScore: 3, isFriendly: true }), refs());
+    expect(friendly).toContain("(friendly)");
+    const cleared = describeActivity("game_result_set", JSON.stringify({ gameId: G1, ourScore: null, opponentScore: null, isFriendly: false }), refs());
+    expect(cleared).toContain("cleared the final score");
+  });
+
   it("resolves coach and player ids to names", () => {
     expect(describeActivity("coach_assigned", U1, refs())).toBe("added Sam Coach to the team");
     expect(describeActivity("coach_removed", "user_gone", refs())).toBe("removed a coach from the team");
@@ -85,6 +95,8 @@ describe("collectActivityRefs", () => {
     ]);
     expect([...ids.playerIds]).toEqual([P1]);
     expect([...ids.gameIds]).toEqual([G1]);
+    const r = collectActivityRefs([{ action: "game_result_set", details: JSON.stringify({ gameId: G1, ourScore: 1, opponentScore: 0 }) }]);
+    expect([...r.gameIds]).toEqual([G1]);
     expect([...ids.userIds]).toEqual([U1]);
   });
 });

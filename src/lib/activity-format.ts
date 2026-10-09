@@ -91,7 +91,10 @@ function lineupParts(details: string | null) {
 export function collectActivityRefs(entries: Entry[]): ActivityRefIds {
   const ids: ActivityRefIds = { playerIds: new Set(), gameIds: new Set(), userIds: new Set() };
   for (const { action, details } of entries) {
-    if (action === "availability_set") {
+    if (action === "game_result_set") {
+      const p = parseJson(details);
+      if (typeof p?.gameId === "string" && UUID_RE.test(p.gameId)) ids.gameIds.add(p.gameId);
+    } else if (action === "availability_set") {
       const p = availabilityParts(details);
       if (p?.playerId && UUID_RE.test(p.playerId)) ids.playerIds.add(p.playerId);
       if (p?.gameId && UUID_RE.test(p.gameId)) ids.gameIds.add(p.gameId);
@@ -157,6 +160,16 @@ export function describeActivity(action: string, details: string | null, refs: A
     case "game_deleted":
       // Older rows stored the raw game id (the game itself is gone, so it can't be looked up).
       return d && !UUID_RE.test(d) ? `deleted the game on ${gameLabelFromText(d)}` : "deleted a game";
+    case "game_result_set": {
+      const p = parseJson(details);
+      if (!p) return "updated a game result";
+      const where = forGame(typeof p.gameId === "string" ? p.gameId : null, refs);
+      const friendly = p.isFriendly === true ? " (friendly)" : "";
+      if (typeof p.ourScore !== "number" || typeof p.opponentScore !== "number") {
+        return `cleared the final score${where}${friendly}`;
+      }
+      return `recorded a final score of ${p.ourScore}-${p.opponentScore}${where}${friendly}`;
+    }
     case "coach_assigned":
       return `added ${d ? (refs.users.get(d) ?? "a coach") : "a coach"} to the team`;
     case "coach_removed":

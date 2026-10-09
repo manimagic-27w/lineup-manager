@@ -61,6 +61,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     { header: "Date", key: "date", width: 14 },
     { header: "Opponent", key: "opponent", width: 24 },
     { header: "Season", key: "season", width: 18 },
+    { header: "Our score", key: "ourScore", width: 10 },
+    { header: "Opponent score", key: "opponentScore", width: 14 },
+    { header: "Friendly", key: "friendly", width: 10 },
     { header: "Film link", key: "filmUrl", width: 30 },
     { header: "Notes", key: "notes", width: 40 },
   ];
@@ -69,6 +72,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       date: g.date,
       opponent: g.opponent ?? "",
       season: g.seasonName ?? "",
+      ourScore: g.ourScore ?? "",
+      opponentScore: g.opponentScore ?? "",
+      friendly: g.isFriendly ? "Yes" : "No",
       filmUrl: g.filmUrl ?? "",
       notes: g.notes,
     });
