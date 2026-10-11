@@ -11,15 +11,18 @@ stored in the database are rewritten to their production equivalents by
 - Also download the Excel export for each team (Team -> Export).
 
 ## 1. Domain + Vercel
-- Vercel project -> Settings -> Domains -> add `lacrosselineupmanager.com` (and `www`).
-  Add the DNS records Vercel shows at your registrar.
+- The domain was bought through Vercel, so Vercel is also the DNS host: no registrar changes.
+  Vercel project -> Settings -> Domains -> add `lacrosselineupmanager.com` (and `www`, set to
+  redirect to the main one). Vercel configures its own records automatically.
 - Set `NEXT_PUBLIC_APP_URL=https://lacrosselineupmanager.com` in Vercel (Production).
 
 ## 2. Create the Clerk production instance
 - Clerk dashboard -> instance switcher (top left) -> **Create production instance**; clone dev
   settings. Domain: `lacrosselineupmanager.com`.
-- Add the DNS records Clerk lists (Domains page; usually 5 CNAMEs incl. email). Verify, then
-  **Deploy certificates**. If you use Cloudflare, set the Clerk records to "DNS only".
+- Add the DNS records Clerk lists (Domains page; usually 5 CNAMEs incl. email) in Vercel:
+  Vercel dashboard -> Domains -> `lacrosselineupmanager.com` -> DNS Records -> Add. Use the
+  names Clerk shows (e.g. `clerk`, `accounts`, the mail ones) as the record names, type CNAME,
+  and Clerk's targets as the values. Then back in Clerk: Verify, then **Deploy certificates**.
 - Enable **Organizations**. Under Restrictions, make sign-up invite-only (or restricted).
 - If you offer Google sign-in, create your own Google OAuth credentials and enter them in Clerk.
 - Recreate Paths / branding / sign-out redirect (Clerk doesn't copy them).
