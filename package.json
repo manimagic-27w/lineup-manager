@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "import:sheets": "tsx scripts/import-from-sheets.ts",
+    "migrate:clerk-ids": "tsx scripts/migrate-clerk-ids.ts",
     "test": "vitest run"
   },
   "dependencies": {
