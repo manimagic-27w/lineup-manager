@@ -89,6 +89,11 @@ describe("describeActivity", () => {
     expect(ids.gameIds.has(G1)).toBe(true);
   });
 
+  it("describes a guest added straight to the guest roster", () => {
+    expect(describeActivity("guest_created", "Gia Guest", refs())).toBe("added Gia Guest to the guest roster");
+    expect(describeActivity("guest_created", null, refs())).toBe("added a guest to the guest roster");
+  });
+
   it("resolves coach and player ids to names", () => {
     expect(describeActivity("coach_assigned", U1, refs())).toBe("added Sam Coach to the team");
     expect(describeActivity("coach_removed", "user_gone", refs())).toBe("removed a coach from the team");

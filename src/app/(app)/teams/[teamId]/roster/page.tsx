@@ -13,13 +13,15 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
   const guests = await listRoster(teamId, { includeArchived: true, guests: "only" });
   const experienceLevels =
     EXPERIENCE_LEVELS_BY_TEAM_TYPE[team.teamType as TeamType] ?? EXPERIENCE_LEVELS_BY_TEAM_TYPE.travel;
+  // Travel teams don't track grade (it's a rec-league thing), so it's hidden for them.
+  const hideGrade = team.teamType === "travel";
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-8 sm:px-6">
       <TeamRealtime teamId={teamId} scopes={["roster"]} />
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <RosterTable players={players} canEdit experienceLevels={experienceLevels} />
+        <RosterTable players={players} canEdit experienceLevels={experienceLevels} hideGrade={hideGrade} />
       </div>
 
       {guests.length > 0 && (
@@ -31,7 +33,7 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
             Add guest list; their History is kept.
           </p>
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <RosterTable players={guests} canEdit experienceLevels={experienceLevels} />
+            <RosterTable players={guests} canEdit experienceLevels={experienceLevels} hideGrade={hideGrade} />
           </div>
         </section>
       )}
@@ -59,10 +61,12 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-slate-600">Grade</label>
-            <input name="grade" className="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
-          </div>
+          {!hideGrade && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">Grade</label>
+              <input name="grade" className="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Experience</label>
             <select name="experience" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
@@ -74,8 +78,26 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
               ))}
             </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="player-type" className="text-xs font-medium text-slate-600">
+              Type
+            </label>
+            <select
+              id="player-type"
+              name="playerType"
+              defaultValue="core"
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            >
+              <option value="core">Core roster</option>
+              <option value="guest">Guest</option>
+            </select>
+          </div>
           <SubmitButton pendingLabel="Adding…">Add player</SubmitButton>
         </form>
+        <p className="mt-2 text-xs text-slate-500">
+          Core players are on every game. Guests go on your guest roster and only appear on games you add
+          them to.
+        </p>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">

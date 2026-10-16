@@ -214,6 +214,8 @@ export function describeActivity(action: string, details: string | null, refs: A
     }
     case "player_added":
       return d ? `added ${d} to the roster` : "added a player";
+    case "guest_created":
+      return d ? `added ${d} to the guest roster` : "added a guest to the guest roster";
     case "player_updated":
       return d ? `updated ${d}` : "updated a player";
     case "player_deleted":

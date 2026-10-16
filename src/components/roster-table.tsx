@@ -32,10 +32,13 @@ export function RosterTable({
   players,
   canEdit,
   experienceLevels,
+  hideGrade = false,
 }: {
   players: Player[];
   canEdit: boolean;
   experienceLevels: readonly string[];
+  /** Travel teams don't track grade, so its column and edit field are hidden. */
+  hideGrade?: boolean;
 }) {
   // Every row's current Position + Experience dropdown values, keyed by player id, so both can
   // be edited in place and saved for the whole roster in one action instead of one player at a
@@ -86,7 +89,7 @@ export function RosterTable({
             <th className="px-4 py-2">Name</th>
             <th className="px-4 py-2">#</th>
             <th className="px-4 py-2">Position</th>
-            <th className="px-4 py-2">Grade</th>
+            {!hideGrade && <th className="px-4 py-2">Grade</th>}
             <th className="px-4 py-2">Experience</th>
             {canEdit && <th className="px-4 py-2" />}
           </tr>
@@ -102,6 +105,7 @@ export function RosterTable({
                 position={d.position}
                 experience={d.experience}
                 experienceLevels={experienceLevels}
+                hideGrade={hideGrade}
                 onPositionChange={(value) => setField(p.id, "position", value)}
                 onExperienceChange={(value) => setField(p.id, "experience", value)}
               />
@@ -141,6 +145,7 @@ function PlayerRow({
   position,
   experience,
   experienceLevels,
+  hideGrade,
   onPositionChange,
   onExperienceChange,
 }: {
@@ -149,6 +154,7 @@ function PlayerRow({
   position: string;
   experience: string;
   experienceLevels: readonly string[];
+  hideGrade: boolean;
   onPositionChange: (value: string) => void;
   onExperienceChange: (value: string) => void;
 }) {
@@ -157,7 +163,7 @@ function PlayerRow({
   if (editing) {
     return (
       <tr className="bg-slate-50">
-        <td colSpan={6} className="p-3">
+        <td colSpan={hideGrade ? 5 : 6} className="p-3">
           <form
             action={async (fd) => {
               await updatePlayer(fd);
@@ -174,7 +180,13 @@ function PlayerRow({
             <input type="hidden" name="experience" value={player.experience ?? ""} />
             <Field label="Name" name="name" defaultValue={player.name} required />
             <Field label="#" name="number" defaultValue={player.number ?? ""} className="w-16" />
-            <Field label="Grade" name="grade" defaultValue={player.grade ?? ""} className="w-20" />
+            {hideGrade ? (
+              // Hidden for travel teams, but a grade already on file is carried through so saving
+              // the name or number never wipes it.
+              <input type="hidden" name="grade" value={player.grade ?? ""} />
+            ) : (
+              <Field label="Grade" name="grade" defaultValue={player.grade ?? ""} className="w-20" />
+            )}
             <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
             <button
               type="button"
@@ -222,7 +234,7 @@ function PlayerRow({
           (player.position ?? "-")
         )}
       </td>
-      <td className="px-4 py-2">{player.grade ?? "-"}</td>
+      {!hideGrade && <td className="px-4 py-2">{player.grade ?? "-"}</td>}
       <td className="px-4 py-2">
         {canEdit ? (
           <select

@@ -16,11 +16,14 @@ export function AddGuest({
   gameId,
   guests,
   experienceLevels,
+  showGrade = true,
 }: {
   teamId: string;
   gameId: string;
   guests: GuestOption[];
   experienceLevels: readonly string[];
+  /** Travel teams don't track grade, so the field is left out. */
+  showGrade?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pick, setPick] = useState("");
@@ -165,16 +168,18 @@ export function AddGuest({
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="guest-grade" className="text-xs text-slate-500">
-                  Grade
-                </label>
-                <input
-                  id="guest-grade"
-                  name="grade"
-                  className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
-                />
-              </div>
+              {showGrade && (
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="guest-grade" className="text-xs text-slate-500">
+                    Grade
+                  </label>
+                  <input
+                    id="guest-grade"
+                    name="grade"
+                    className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                  />
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <label htmlFor="guest-experience" className="text-xs text-slate-500">
                   Experience

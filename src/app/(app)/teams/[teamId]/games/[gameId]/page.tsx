@@ -296,7 +296,7 @@ export default async function GameDayPage({
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <ImportAvailability teamId={teamId} gameId={gameId} options={importOptions} />
-            <AddGuest teamId={teamId} gameId={gameId} guests={guestOptions} experienceLevels={experienceLevels} />
+            <AddGuest teamId={teamId} gameId={gameId} guests={guestOptions} experienceLevels={experienceLevels} showGrade={team.teamType !== "travel"} />
             <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} format={game.format} canEdit />
           </div>
         </section>

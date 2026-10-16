@@ -36,6 +36,8 @@ const playerSchema = z.object({
   grade: z.string().trim().max(20),
   experience: z.string().trim().max(40),
   position: z.union([z.enum(POSITION_KEYS), z.literal("")]).optional(),
+  // "core" (default) goes on the main roster; "guest" goes on the guest roster instead.
+  playerType: z.enum(["core", "guest"]).default("core"),
 });
 
 export async function addPlayer(formData: FormData) {
@@ -46,8 +48,10 @@ export async function addPlayer(formData: FormData) {
     grade: formData.get("grade") ?? "",
     experience: formData.get("experience") ?? "",
     position: formData.get("position") || undefined,
+    playerType: formData.get("playerType") || undefined,
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
+  const isGuest = parsed.playerType === "guest";
 
   await db.insert(players).values({
     teamId: parsed.teamId,
@@ -56,9 +60,15 @@ export async function addPlayer(formData: FormData) {
     grade: parsed.grade || null,
     experience: parsed.experience || null,
     position: parsed.position ?? null,
+    isGuest,
   });
 
-  await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "player_added", details: parsed.name });
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: isGuest ? "guest_created" : "player_added",
+    details: parsed.name,
+  });
   await broadcastTeamUpdate(parsed.teamId, "roster");
   revalidatePath(`/teams/${parsed.teamId}/roster`);
 }
