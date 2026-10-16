@@ -4,7 +4,7 @@
  */
 
 /** Where "Request an invite" goes until club sign-up and payment are decided. */
-export const REQUEST_ACCESS_EMAIL = "jeffrey.haid@gmail.com";
+export const REQUEST_ACCESS_EMAIL = "support@lacrosselineupmanager.com";
 export const REQUEST_ACCESS_HREF = `mailto:${REQUEST_ACCESS_EMAIL}?subject=${encodeURIComponent(
   "Lineup Manager invite request"
 )}&body=${encodeURIComponent("Hi! I'd like to try Lineup Manager.\n\nClub name:\nTeam(s) / age group:\nMy name:\n")}`;
