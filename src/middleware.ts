@@ -5,11 +5,20 @@ import { NextResponse } from "next/server";
 // still works (deprecated, not removed) and this is what Clerk's Next.js SDK documents as of
 // this build, so we keep the familiar name here rather than fighting an unreleased rename.
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+// /home and /demo are the public front page and demo (see src/app/(marketing)). Signed-out
+// visitors who open "/" are shown /home without the URL changing; signed-in users still get the
+// dashboard at "/".
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)"]);
+const isRootRoute = createRouteMatcher(["/"]);
 const isSelectOrgRoute = createRouteMatcher(["/select-org(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return;
+
+  if (isRootRoute(req)) {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.rewrite(new URL("/home" + req.nextUrl.search, req.url));
+  }
 
   const { orgId } = await auth.protect();
 
