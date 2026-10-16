@@ -65,6 +65,19 @@ describe("describeActivity", () => {
     expect(cleared).toContain("cleared the final score");
   });
 
+  it("describes tournaments and availability imports", () => {
+    expect(describeActivity("tournament_created", "Spring Classic", refs())).toBe("created the tournament Spring Classic");
+    expect(describeActivity("tournament_deleted", "Spring Classic", refs())).toBe("deleted the tournament Spring Classic");
+    const G2 = "55555555-5555-4555-8555-555555555555";
+    const r = refs();
+    r.games.set(G2, { date: "2026-10-04", opponent: null });
+    const out = describeActivity("availability_imported", JSON.stringify({ gameId: G2, sourceGameId: G1, count: 1 }), r);
+    expect(out).toContain("imported availability from the game on");
+    expect(out).toContain("vs Eagles");
+    expect(out).toContain("(1 player)");
+    expect(collectActivityRefs([{ action: "availability_imported", details: JSON.stringify({ gameId: G2, sourceGameId: G1, count: 1 }) }]).gameIds.size).toBe(2);
+  });
+
   it("resolves coach and player ids to names", () => {
     expect(describeActivity("coach_assigned", U1, refs())).toBe("added Sam Coach to the team");
     expect(describeActivity("coach_removed", "user_gone", refs())).toBe("removed a coach from the team");

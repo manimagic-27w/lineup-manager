@@ -1,7 +1,7 @@
 import "server-only";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "./db";
-import { players, games, gamePlayers, lineupSlots, statCategories, statValues, seasons, SLOTS, SIXES_SLOTS, SEVENS_SLOTS } from "./db/schema";
+import { players, games, gamePlayers, lineupSlots, statCategories, statValues, seasons, tournaments, SLOTS, SIXES_SLOTS, SEVENS_SLOTS } from "./db/schema";
 
 export { toCsv } from "./csv";
 
@@ -12,6 +12,8 @@ export async function loadTeamExport(teamId: string) {
   const teamGames = await db.select().from(games).where(eq(games.teamId, teamId)).orderBy(asc(games.date));
   const teamSeasons = await db.select().from(seasons).where(eq(seasons.teamId, teamId));
   const seasonById = new Map(teamSeasons.map((s) => [s.id, s]));
+  const teamTournaments = await db.select().from(tournaments).where(eq(tournaments.teamId, teamId));
+  const tournamentById = new Map(teamTournaments.map((t) => [t.id, t]));
   const gameIds = teamGames.map((g) => g.id);
 
   const [availability, lineup, categories, values] = gameIds.length
@@ -33,7 +35,9 @@ export async function loadTeamExport(teamId: string) {
 
   return {
     roster,
-    games: teamGames.map((g) => ({ ...g, seasonName: g.seasonId ? (seasonById.get(g.seasonId)?.name ?? null) : null })),
+    games: teamGames.map((g) => ({ ...g, seasonName: g.seasonId ? (seasonById.get(g.seasonId)?.name ?? null) : null,
+      tournamentName: g.tournamentId ? (tournamentById.get(g.tournamentId)?.name ?? null) : null,
+    })),
     availability: availability.map((a) => ({
       game: gameById.get(a.gameId),
       player: playerById.get(a.playerId),

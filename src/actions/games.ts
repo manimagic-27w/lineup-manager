@@ -1,13 +1,14 @@
 "use server";
 
 import { z } from "zod";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import {
   games,
   gamePlayers,
+  tournaments,
   lineupSlots,
   players,
   AVAILABILITY_STATUSES,
@@ -63,7 +64,22 @@ const createGameSchema = z.object({
   filmUrl: z.string().trim().max(500),
   format: z.enum(FORMAT_KEYS).default("field"),
   isFriendly: z.boolean().default(false),
+  // Empty string means "No tournament".
+  tournamentId: z.union([z.string().uuid(), z.literal("")]).default(""),
 });
+
+/** A game can only be grouped under one of its own team's tournaments. Returns the id to store
+ *  (null for none) and rejects an id that belongs to a different team. */
+async function resolveTournamentId(teamId: string, tournamentId: string) {
+  if (!tournamentId) return null;
+  const [t] = await db
+    .select({ id: tournaments.id })
+    .from(tournaments)
+    .where(and(eq(tournaments.id, tournamentId), eq(tournaments.teamId, teamId)))
+    .limit(1);
+  if (!t) throw new Error("Tournament not found.");
+  return t.id;
+}
 
 export async function createGame(formData: FormData) {
   const parsed = createGameSchema.parse({
@@ -75,8 +91,10 @@ export async function createGame(formData: FormData) {
     filmUrl: formData.get("filmUrl") ?? "",
     format: formData.get("format") || "field",
     isFriendly: formData.get("isFriendly") === "on",
+    tournamentId: formData.get("tournamentId") ?? "",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
+  const tournamentId = await resolveTournamentId(parsed.teamId, parsed.tournamentId);
 
   const [game] = await db
     .insert(games)
@@ -89,6 +107,7 @@ export async function createGame(formData: FormData) {
       filmUrl: parsed.filmUrl || null,
       format: parsed.format,
       isFriendly: parsed.isFriendly,
+      tournamentId,
       createdBy: userId,
     })
     .returning();
@@ -175,8 +194,10 @@ export async function updateGame(formData: FormData) {
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
     format: formData.get("format") || "field",
+    tournamentId: formData.get("tournamentId") ?? "",
   });
   const { userId } = await requireTeamAccess(parsed.teamId);
+  const tournamentId = await resolveTournamentId(parsed.teamId, parsed.tournamentId);
 
   await db
     .update(games)
@@ -187,6 +208,7 @@ export async function updateGame(formData: FormData) {
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
       format: parsed.format,
+      tournamentId,
     })
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
@@ -292,6 +314,71 @@ export async function setAvailability(formData: FormData) {
   });
   await broadcastTeamUpdate(parsed.teamId, "availability", parsed.gameId);
   revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
+}
+
+const importAvailabilitySchema = z.object({
+  teamId: z.string().uuid(),
+  gameId: z.string().uuid(),
+  sourceGameId: z.string().uuid(),
+});
+
+/**
+ * Copies availability from another game of the same team onto this one, e.g. a coach collects
+ * availability once for a tournament weekend and reuses it for each game. It only fills in
+ * players who are still "No Response" here, and only with a real answer from the source
+ * (a "No Response" in the source carries nothing over), so anything the coach already entered
+ * on this game is never overwritten and the import is safe to run again. Lineups are untouched.
+ * Returns how many players were updated.
+ */
+export async function importAvailability(formData: FormData) {
+  const parsed = importAvailabilitySchema.parse({
+    teamId: formData.get("teamId"),
+    gameId: formData.get("gameId"),
+    sourceGameId: formData.get("sourceGameId"),
+  });
+  const { userId } = await requireTeamAccess(parsed.teamId);
+  if (parsed.gameId === parsed.sourceGameId) throw new Error("Pick a different game to import from.");
+
+  // Both games must belong to this team, so one team can never read another team's availability.
+  const own = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(and(eq(games.teamId, parsed.teamId), inArray(games.id, [parsed.gameId, parsed.sourceGameId])));
+  if (own.length !== 2) throw new Error("Game not found.");
+
+  const imported = await db.transaction(async (tx) => {
+    // Players that already have a row on this game but haven't answered yet.
+    const updated = await tx.execute(sql`
+      UPDATE game_players AS t
+      SET status = s.status
+      FROM game_players AS s
+      WHERE t.game_id = ${parsed.gameId}::uuid
+        AND s.game_id = ${parsed.sourceGameId}::uuid
+        AND t.player_id = s.player_id
+        AND t.status = 'No Response'
+        AND s.status <> 'No Response'`);
+    // Players with no row on this game yet (added to the roster after it was scheduled).
+    const inserted = await tx.execute(sql`
+      INSERT INTO game_players (game_id, player_id, status)
+      SELECT ${parsed.gameId}::uuid, s.player_id, s.status
+      FROM game_players AS s
+      WHERE s.game_id = ${parsed.sourceGameId}::uuid
+        AND s.status <> 'No Response'
+        AND NOT EXISTS (
+          SELECT 1 FROM game_players AS t WHERE t.game_id = ${parsed.gameId}::uuid AND t.player_id = s.player_id
+        )`);
+    return (updated.rowCount ?? 0) + (inserted.rowCount ?? 0);
+  });
+
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "availability_imported",
+    details: JSON.stringify({ gameId: parsed.gameId, sourceGameId: parsed.sourceGameId, count: imported }),
+  });
+  await broadcastTeamUpdate(parsed.teamId, "availability", parsed.gameId);
+  revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
+  return { imported };
 }
 
 const lineupSchema = z.object({

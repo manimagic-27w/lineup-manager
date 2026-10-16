@@ -94,6 +94,12 @@ export function collectActivityRefs(entries: Entry[]): ActivityRefIds {
     if (action === "game_result_set") {
       const p = parseJson(details);
       if (typeof p?.gameId === "string" && UUID_RE.test(p.gameId)) ids.gameIds.add(p.gameId);
+    } else if (action === "availability_imported") {
+      const p = parseJson(details);
+      for (const k of ["gameId", "sourceGameId"] as const) {
+        const v = p?.[k];
+        if (typeof v === "string" && UUID_RE.test(v)) ids.gameIds.add(v);
+      }
     } else if (action === "availability_set") {
       const p = availabilityParts(details);
       if (p?.playerId && UUID_RE.test(p.playerId)) ids.playerIds.add(p.playerId);
@@ -170,6 +176,19 @@ export function describeActivity(action: string, details: string | null, refs: A
       }
       return `recorded a final score of ${p.ourScore}-${p.opponentScore}${where}${friendly}`;
     }
+    case "availability_imported": {
+      const p = parseJson(details);
+      if (!p) return "imported availability";
+      const target = forGame(typeof p.gameId === "string" ? p.gameId : null, refs);
+      const src = typeof p.sourceGameId === "string" ? refs.games.get(p.sourceGameId) : undefined;
+      const from = src ? ` from the game on ${gameLabelFromRef(src)}` : " from another game";
+      const n = typeof p.count === "number" ? ` (${p.count} player${p.count === 1 ? "" : "s"})` : "";
+      return `imported availability${from}${target}${n}`;
+    }
+    case "tournament_created":
+      return d ? `created the tournament ${d}` : "created a tournament";
+    case "tournament_deleted":
+      return d ? `deleted the tournament ${d}` : "deleted a tournament";
     case "coach_assigned":
       return `added ${d ? (refs.users.get(d) ?? "a coach") : "a coach"} to the team`;
     case "coach_removed":

@@ -211,6 +211,20 @@ export const players = pgTable("players", {
 /* Seasons, games, availability, lineup                                */
 /* ------------------------------------------------------------------ */
 
+// A tournament groups several games played over one event (e.g. a weekend "Spring Classic").
+// Like a season it's only a label coaches create and assign by hand. Unlike a season it also
+// scopes availability: a coach can copy a player's availability from another game in the same
+// tournament instead of re-entering it for every game.
+export const tournaments = pgTable("tournaments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdBy: text("created_by").notNull(),
+});
+
 // A season is just a label a coach creates to group games under (e.g. "Fall 2026") - no dates of
 // its own. Assigning a game to one is entirely manual (see games.seasonId below); nothing
 // auto-assigns a game to a season based on its date.
@@ -239,6 +253,8 @@ export const games = pgTable("games", {
   // Nullable and onDelete "set null" on purpose: deleting a season should never delete its games,
   // just unassign them back to "No season."
   seasonId: uuid("season_id").references(() => seasons.id, { onDelete: "set null" }),
+  // Same idea as seasonId: deleting a tournament only ungroups its games, never deletes them.
+  tournamentId: uuid("tournament_id").references(() => tournaments.id, { onDelete: "set null" }),
   // A link to game film (Hudl, YouTube, a shared Google Drive folder, whatever the club uses) -
   // free text rather than a strict URL type so an already-pasted link never fails to save; the UI
   // is responsible for treating it as a link when rendering it.
@@ -362,6 +378,7 @@ export const seasonsRelations = relations(seasons, ({ one, many }) => ({
 export const gamesRelations = relations(games, ({ one, many }) => ({
   team: one(teams, { fields: [games.teamId], references: [teams.id] }),
   season: one(seasons, { fields: [games.seasonId], references: [seasons.id] }),
+  tournament: one(tournaments, { fields: [games.tournamentId], references: [tournaments.id] }),
   players: many(gamePlayers),
   lineup: many(lineupSlots),
   stats: many(statValues),

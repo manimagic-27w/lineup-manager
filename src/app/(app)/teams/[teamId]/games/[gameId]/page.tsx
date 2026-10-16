@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
-import { getGame, getGameDay, updateGame, deleteGame, setGameResult } from "@/actions/games";
+import { getGame, getGameDay, listGames, updateGame, deleteGame, setGameResult } from "@/actions/games";
+import { listTournaments } from "@/actions/tournaments";
 import { listSeasons } from "@/actions/seasons";
 import { requireTeamAccess } from "@/lib/auth";
-import { ensureHttpUrl } from "@/lib/utils";
+import { ensureHttpUrl, formatDate } from "@/lib/utils";
+import { orderImportSources } from "@/lib/tournament-groups";
+import { ImportAvailability } from "@/components/import-availability";
 import { gameOutcome } from "@/lib/game-record";
 import { AvailabilityList } from "@/components/availability-list";
 import { LineupBoard } from "@/components/lineup-board";
@@ -23,10 +26,23 @@ export default async function GameDayPage({
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const [{ roster, slots }, seasons] = await Promise.all([
+  const [{ roster, slots }, seasons, tournaments, allGames] = await Promise.all([
     getGameDay(teamId, gameId, game.format),
     listSeasons(teamId),
+    listTournaments(teamId),
+    listGames(teamId),
   ]);
+  const tournamentName = game.tournamentId
+    ? (tournaments.find((t) => t.id === game.tournamentId)?.name ?? null)
+    : null;
+  const importOptions = orderImportSources(allGames, game).map((g) => ({
+    id: g.id,
+    label: `${formatDate(g.date)}${g.opponent ? ` vs ${g.opponent}` : ""}`,
+    group:
+      game.tournamentId && g.tournamentId === game.tournamentId
+        ? `Same tournament${tournamentName ? ` - ${tournamentName}` : ""}`
+        : "Other games",
+  }));
   const activeRoster = roster.filter((p) => !p.archivedAt);
   const outcome = gameOutcome(game);
   const OUTCOME_STYLES = {
@@ -61,7 +77,9 @@ export default async function GameDayPage({
 
       <section className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate-600">Final score</span>
+          <span className="text-xs font-medium text-slate-600">
+            Final score{tournamentName ? ` · ${tournamentName}` : ""}
+          </span>
           {outcome ? (
             <div className="flex items-center gap-2">
               <span className={`rounded-md px-2 py-1 text-sm font-bold ${OUTCOME_STYLES[outcome]}`}>{outcome}</span>
@@ -162,6 +180,23 @@ export default async function GameDayPage({
               </select>
             </div>
           )}
+          {tournaments.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-600">Tournament</label>
+              <select
+                name="tournamentId"
+                defaultValue={game.tournamentId ?? ""}
+                className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">No tournament</option>
+                {tournaments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Format</label>
             <select
@@ -220,6 +255,7 @@ export default async function GameDayPage({
             <input type="hidden" name="opponent" value={game.opponent ?? ""} />
             <input type="hidden" name="seasonId" value={game.seasonId ?? ""} />
             <input type="hidden" name="format" value={game.format} />
+            <input type="hidden" name="tournamentId" value={game.tournamentId ?? ""} />
             <input type="hidden" name="filmUrl" value={game.filmUrl ?? ""} />
             <label htmlFor="game-notes" className="mb-1 block text-xs font-medium text-slate-600">
               Notes
@@ -243,6 +279,7 @@ export default async function GameDayPage({
         <section className="lg:sticky lg:top-6">
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <ImportAvailability teamId={teamId} gameId={gameId} options={importOptions} />
             <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} format={game.format} canEdit />
           </div>
         </section>
