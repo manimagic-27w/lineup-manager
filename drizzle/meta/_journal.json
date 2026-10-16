@@ -43,6 +43,13 @@
       "when": 1792158719430,
       "tag": "0005_little_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792178198602,
+      "tag": "0006_dazzling_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

@@ -31,7 +31,8 @@ export async function getStatSheet(teamId: string) {
     .from(players)
     .where(eq(players.teamId, teamId))
     .orderBy(asc(players.name));
-  const activeRoster = roster.filter((p) => !p.archivedAt);
+  // Guests are not on the stats sheet (it is per core-roster player).
+  const activeRoster = roster.filter((p) => !p.archivedAt && !p.isGuest);
 
   if (teamGames.length === 0 || activeRoster.length === 0 || categories.length === 0) {
     return { categories, games: teamGames, roster: activeRoster, values: {}, blackouts: {} };

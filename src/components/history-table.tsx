@@ -39,10 +39,22 @@ export function HistoryTable({ players }: { players: PlayerStartHistory[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {players.map((p) => {
+          {players.map((p, index) => {
             const isOpen = expanded.has(p.playerId);
+            // Core roster first, then guests: the first guest row gets a labeled divider above it.
+            const startsGuests = p.isGuest && (index === 0 || !players[index - 1].isGuest);
             return (
               <Fragment key={p.playerId}>
+                {startsGuests && (
+                  <tr className="bg-slate-100">
+                    <td
+                      colSpan={SLOT_POSITIONS.length + 2}
+                      className="border-y border-slate-300 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Guest players
+                    </td>
+                  </tr>
+                )}
                 <tr
                   onClick={() => toggle(p.playerId)}
                   className={cn(

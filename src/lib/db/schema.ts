@@ -204,6 +204,10 @@ export const players = pgTable("players", {
   experience: text("experience"),
   position: text("position"),
   archivedAt: timestamp("archived_at", { withTimezone: true }), // soft delete - keeps history on old games
+  // Guests live on a separate "guest roster": they're not on the main Roster tab and are not
+  // added to every game automatically - a coach adds them to individual games (a game_players
+  // row is what puts a guest on a game). They are reusable across games and show up in History.
+  isGuest: boolean("is_guest").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

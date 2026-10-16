@@ -21,6 +21,7 @@ import {
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
+import { coreThenGuests } from "@/lib/guests";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
@@ -116,7 +117,7 @@ export async function createGame(formData: FormData) {
   const roster = await db
     .select({ id: players.id })
     .from(players)
-    .where(and(eq(players.teamId, parsed.teamId)));
+    .where(and(eq(players.teamId, parsed.teamId), eq(players.isGuest, false)));
   if (roster.length > 0) {
     await db
       .insert(gamePlayers)
@@ -265,8 +266,12 @@ export async function getGameDay(teamId: string, gameId: string, format: string 
   const availabilityByPlayer = new Map(availability.map((a) => [a.playerId, a.status]));
   const lineupBySlot = new Map(lineup.map((l) => [l.slotKey, l.playerId]));
 
+  // Guests only count for a game they've been added to (they have a game_players row); core
+  // players are always on every game. Core players come first, then guests, each by name.
+  const onThisGame = roster.filter((p) => !p.isGuest || availabilityByPlayer.has(p.id));
+
   return {
-    roster: roster.map((p) => ({
+    roster: coreThenGuests(onThisGame).map((p) => ({
       ...p,
       status: availabilityByPlayer.get(p.id) ?? "No Response",
     })),

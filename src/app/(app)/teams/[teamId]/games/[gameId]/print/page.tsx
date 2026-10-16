@@ -28,7 +28,10 @@ export default async function LineupPrintPage({
   if (!game) notFound();
 
   const { roster, slots } = await getGameDay(teamId, gameId, game.format);
-  const activeRoster = roster.filter((p) => !p.archivedAt);
+  // Guests are tagged so the printed sheet shows who is not on the core roster.
+  const activeRoster = roster
+    .filter((p) => !p.archivedAt)
+    .map((p) => (p.isGuest ? { ...p, name: `${p.name} (guest)` } : p));
   const playerById = new Map(activeRoster.map((p) => [p.id, p]));
   const bench = getBenchPlayers(activeRoster, slots);
   const unitOrder = UNIT_ORDER_BY_FORMAT[game.format] ?? UNIT_ORDER_BY_FORMAT.field;

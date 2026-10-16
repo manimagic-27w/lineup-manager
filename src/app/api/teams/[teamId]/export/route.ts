@@ -22,6 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         grade: p.grade ?? "",
         experience: p.experience ?? "",
         archived: p.archivedAt ? "yes" : "no",
+        guest: p.isGuest ? "yes" : "no",
       }))
     );
     return new Response(csv, {
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     { header: "Grade", key: "grade", width: 10 },
     { header: "Experience", key: "experience", width: 16 },
     { header: "Archived", key: "archived", width: 10 },
+    { header: "Guest", key: "guest", width: 8 },
   ];
   for (const p of data.roster) {
     rosterSheet.addRow({
@@ -53,6 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       grade: p.grade ?? "",
       experience: p.experience ?? "",
       archived: p.archivedAt ? "Yes" : "No",
+      guest: p.isGuest ? "Yes" : "No",
     });
   }
 

@@ -2,10 +2,14 @@ import { notFound } from "next/navigation";
 import { getGame, getGameDay, listGames, updateGame, deleteGame, setGameResult } from "@/actions/games";
 import { listTournaments } from "@/actions/tournaments";
 import { listSeasons } from "@/actions/seasons";
+import { listRoster } from "@/actions/players";
 import { requireTeamAccess } from "@/lib/auth";
 import { ensureHttpUrl, formatDate } from "@/lib/utils";
 import { orderImportSources } from "@/lib/tournament-groups";
 import { ImportAvailability } from "@/components/import-availability";
+import { AddGuest } from "@/components/add-guest";
+import { guestsAvailableForGame } from "@/lib/guests";
+import { EXPERIENCE_LEVELS_BY_TEAM_TYPE, TeamType } from "@/lib/db/schema";
 import { gameOutcome } from "@/lib/game-record";
 import { AvailabilityList } from "@/components/availability-list";
 import { LineupBoard } from "@/components/lineup-board";
@@ -21,16 +25,17 @@ export default async function GameDayPage({
   params: Promise<{ teamId: string; gameId: string }>;
 }) {
   const { teamId, gameId } = await params;
-  await requireTeamAccess(teamId);
+  const { team } = await requireTeamAccess(teamId);
 
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const [{ roster, slots }, seasons, tournaments, allGames] = await Promise.all([
+  const [{ roster, slots }, seasons, tournaments, allGames, guestRoster] = await Promise.all([
     getGameDay(teamId, gameId, game.format),
     listSeasons(teamId),
     listTournaments(teamId),
     listGames(teamId),
+    listRoster(teamId, { guests: "only" }),
   ]);
   const tournamentName = game.tournamentId
     ? (tournaments.find((t) => t.id === game.tournamentId)?.name ?? null)
@@ -44,6 +49,17 @@ export default async function GameDayPage({
         : "Other games",
   }));
   const activeRoster = roster.filter((p) => !p.archivedAt);
+  // The availability list marks guests with its own divider; everywhere else (lineup dropdowns,
+  // the offline copy) the name carries a "(guest)" tag so a coach can tell them apart.
+  const displayRoster = activeRoster.map((p) => (p.isGuest ? { ...p, name: `${p.name} (guest)` } : p));
+  const guestOptions = guestsAvailableForGame(guestRoster, new Set(roster.map((p) => p.id))).map((g) => ({
+    id: g.id,
+    name: g.name,
+    number: g.number,
+    position: g.position,
+  }));
+  const experienceLevels =
+    EXPERIENCE_LEVELS_BY_TEAM_TYPE[team.teamType as TeamType] ?? EXPERIENCE_LEVELS_BY_TEAM_TYPE.travel;
   const outcome = gameOutcome(game);
   const OUTCOME_STYLES = {
     W: "bg-green-100 text-green-800",
@@ -62,7 +78,7 @@ export default async function GameDayPage({
         opponent={game.opponent}
         seasonName={seasonName}
         format={game.format}
-        roster={activeRoster.map((p) => ({
+        roster={displayRoster.map((p) => ({
           id: p.id,
           name: p.name,
           number: p.number,
@@ -246,7 +262,7 @@ export default async function GameDayPage({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
         <section>
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
-          <LineupBoard teamId={teamId} gameId={gameId} format={game.format} slots={slots} roster={activeRoster} canEdit />
+          <LineupBoard teamId={teamId} gameId={gameId} format={game.format} slots={slots} roster={displayRoster} canEdit />
 
           <form action={updateGame} className="mt-4">
             <input type="hidden" name="teamId" value={teamId} />
@@ -280,6 +296,7 @@ export default async function GameDayPage({
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Availability</h2>
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <ImportAvailability teamId={teamId} gameId={gameId} options={importOptions} />
+            <AddGuest teamId={teamId} gameId={gameId} guests={guestOptions} experienceLevels={experienceLevels} />
             <AvailabilityList teamId={teamId} gameId={gameId} roster={activeRoster} format={game.format} canEdit />
           </div>
         </section>

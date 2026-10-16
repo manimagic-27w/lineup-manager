@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { games, lineupSlots, SLOTS, SIXES_SLOTS, SEVENS_SLOTS, type SlotPosition } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
+import { coreThenGuests } from "@/lib/guests";
 
 // Covers every format's slots so a sixes or sevens game's starts show up here just like a
 // field game's - see SlotPosition in @/lib/db/schema for why sixes needs its own "Sixes"
@@ -34,6 +35,8 @@ export type PlayerStartHistory = {
   name: string;
   number: string | null;
   archived: boolean;
+  /** Guest-roster players are listed after the core roster, under a divider. */
+  isGuest: boolean;
   totalStarts: number;
   countsByPosition: Record<SlotPosition, number>;
   /** Most recent game first. */
@@ -53,7 +56,7 @@ export type PlayerStartHistory = {
 export async function getStartHistory(teamId: string): Promise<PlayerStartHistory[]> {
   await requireTeamAccess(teamId);
 
-  const roster = await listRoster(teamId, { includeArchived: true });
+  const roster = await listRoster(teamId, { includeArchived: true, guests: "all" });
   if (roster.length === 0) return [];
 
   const teamGames = await db.select().from(games).where(eq(games.teamId, teamId)).orderBy(desc(games.date));
@@ -91,7 +94,7 @@ export async function getStartHistory(teamId: string): Promise<PlayerStartHistor
 
   // teamGames is already newest-first, but slot rows aren't guaranteed to come back in that
   // order, so each player's list is sorted independently.
-  return roster.map((p) => {
+  return coreThenGuests(roster).map((p) => {
     const starts = (startsByPlayer.get(p.id) ?? []).sort((a, b) => (a.date < b.date ? 1 : -1));
     const countsByPosition: Record<SlotPosition, number> = { Attack: 0, Mid: 0, Def: 0, Goalie: 0, Sixes: 0 };
     for (const s of starts) countsByPosition[s.position]++;
@@ -101,6 +104,7 @@ export async function getStartHistory(teamId: string): Promise<PlayerStartHistor
       name: p.name,
       number: p.number,
       archived: !!p.archivedAt,
+      isGuest: p.isGuest,
       totalStarts: starts.length,
       countsByPosition,
       starts,

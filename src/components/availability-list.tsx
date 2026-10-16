@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { setAvailability } from "@/actions/games";
+import { removeGuestFromGame } from "@/actions/guests";
 import { AVAILABILITY_STATUSES, leaningForPosition } from "@/lib/db/schema";
 import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ type RosterPlayer = {
   status: string;
   grade: string | null;
   experience: string | null;
+  isGuest?: boolean;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -75,13 +77,21 @@ export function AvailabilityList({
 
   return (
     <ul className="divide-y divide-slate-100">
-      {roster.map((p) => {
+      {roster.map((p, index) => {
         const gradeExperience = formatGradeExperience(p.grade, p.experience);
         const status = saveStatus[p.id] ?? "idle";
         // See LineupBoard's displayValue comment - same reasoning, keyed by playerId.
         const displayStatus = status === "idle" ? p.status : (localValue[p.id] ?? p.status);
+        // The first guest in the (core-then-guests) list gets a divider above it.
+        const startsGuests = !!p.isGuest && (index === 0 || !roster[index - 1].isGuest);
         return (
-        <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
+        <Fragment key={p.id}>
+        {startsGuests && (
+          <li className="bg-slate-100 px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Guests
+          </li>
+        )}
+        <li className="flex items-center justify-between gap-3 px-4 py-2">
           <div className="min-w-0">
             <span className="font-medium text-slate-900">{p.name}</span>
             {format === "sixes" && leaningForPosition(p.position) ? (
@@ -112,6 +122,21 @@ export function AvailabilityList({
                 ))}
               </select>
               <SaveStatusIndicator status={status} onRetry={() => update(p.id, localValue[p.id] ?? p.status)} />
+              {p.isGuest && (
+                <form action={removeGuestFromGame}>
+                  <input type="hidden" name="teamId" value={teamId} />
+                  <input type="hidden" name="gameId" value={gameId} />
+                  <input type="hidden" name="playerId" value={p.id} />
+                  <button
+                    type="submit"
+                    title="Remove this guest from this game (they stay on your guest roster)"
+                    aria-label={`Remove ${p.name} from this game`}
+                    className="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-slate-100 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </form>
+              )}
             </div>
           ) : (
             <span className={cn("rounded-full px-2 py-1 text-xs font-medium", STATUS_STYLES[p.status])}>
@@ -119,6 +144,7 @@ export function AvailabilityList({
             </span>
           )}
         </li>
+        </Fragment>
         );
       })}
     </ul>

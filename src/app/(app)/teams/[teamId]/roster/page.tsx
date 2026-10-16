@@ -10,6 +10,7 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
   const { teamId } = await params;
   const { team } = await requireTeamAccess(teamId);
   const players = await listRoster(teamId, { includeArchived: true });
+  const guests = await listRoster(teamId, { includeArchived: true, guests: "only" });
   const experienceLevels =
     EXPERIENCE_LEVELS_BY_TEAM_TYPE[team.teamType as TeamType] ?? EXPERIENCE_LEVELS_BY_TEAM_TYPE.travel;
 
@@ -20,6 +21,20 @@ export default async function RosterPage({ params }: { params: Promise<{ teamId:
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <RosterTable players={players} canEdit experienceLevels={experienceLevels} />
       </div>
+
+      {guests.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-slate-900">Guest roster</h2>
+          <p className="mb-2 mt-0.5 text-xs text-slate-500">
+            Guests aren&rsquo;t part of your core roster and only appear on games you add them to
+            (use <strong>+ Add guest</strong> on a game). Archive a guest to hide them from the
+            Add guest list; their History is kept.
+          </p>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <RosterTable players={guests} canEdit experienceLevels={experienceLevels} />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a player</h2>

@@ -12,16 +12,20 @@ import { parseRosterCsv, normalizePosition } from "@/lib/csv";
 
 const POSITION_KEYS = POSITIONS as unknown as [string, ...string[]];
 
-export async function listRoster(teamId: string, { includeArchived = false } = {}) {
+/**
+ * `guests` controls the guest roster (players.isGuest): "exclude" (default) is the core roster
+ * only, "only" is just the guests, "all" is both - History uses that so guests appear there.
+ */
+export async function listRoster(
+  teamId: string,
+  { includeArchived = false, guests = "exclude" }: { includeArchived?: boolean; guests?: "exclude" | "only" | "all" } = {}
+) {
   await requireTeamAccess(teamId);
-  const rows = await db
-    .select()
-    .from(players)
-    .where(
-      includeArchived
-        ? eq(players.teamId, teamId)
-        : and(eq(players.teamId, teamId), isNull(players.archivedAt))
-    );
+  const conditions = [eq(players.teamId, teamId)];
+  if (!includeArchived) conditions.push(isNull(players.archivedAt));
+  if (guests === "exclude") conditions.push(eq(players.isGuest, false));
+  if (guests === "only") conditions.push(eq(players.isGuest, true));
+  const rows = await db.select().from(players).where(and(...conditions));
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 

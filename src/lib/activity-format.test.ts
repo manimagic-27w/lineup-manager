@@ -78,6 +78,17 @@ describe("describeActivity", () => {
     expect(collectActivityRefs([{ action: "availability_imported", details: JSON.stringify({ gameId: G2, sourceGameId: G1, count: 1 }) }]).gameIds.size).toBe(2);
   });
 
+  it("describes adding and removing guests", () => {
+    const r = refs();
+    const details = JSON.stringify({ playerId: P1, gameId: G1 });
+    expect(describeActivity("guest_added", details, r)).toContain("added Jordan Reyes as a guest for the game on");
+    expect(describeActivity("guest_removed", details, r)).toContain("removed guest Jordan Reyes for the game on");
+    expect(describeActivity("guest_added", null, r)).toBe("added a player as a guest");
+    const ids = collectActivityRefs([{ action: "guest_added", details }]);
+    expect(ids.playerIds.has(P1)).toBe(true);
+    expect(ids.gameIds.has(G1)).toBe(true);
+  });
+
   it("resolves coach and player ids to names", () => {
     expect(describeActivity("coach_assigned", U1, refs())).toBe("added Sam Coach to the team");
     expect(describeActivity("coach_removed", "user_gone", refs())).toBe("removed a coach from the team");
