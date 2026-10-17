@@ -1,6 +1,7 @@
 import { AVAILABILITY_STATUSES } from "./db/schema";
 import { coreThenGuests } from "./guests";
 import { fieldFormatLabel, type SlotDef } from "./lineup-slots";
+import { clockTimes, totalMinutes } from "./practice";
 
 /**
  * A plain-JSON copy of one team's game-day info (schedule, lineups, bench, availability), saved
@@ -20,12 +21,26 @@ export type OfflineGame = {
   availability: { status: string; players: string[] }[];
 };
 
+/** A practice plan in the offline copy - only present for clubs that have the practice plans
+ *  premium feature. Clock times are already worked out (null when the plan has no start time). */
+export type OfflinePractice = {
+  id: string;
+  title: string;
+  date: string | null; // YYYY-MM-DD
+  goals: string;
+  tags: string[];
+  totalMinutes: number;
+  items: { time: string | null; name: string; minutes: number; notes: string }[];
+};
+
 export type OfflineTeamSnapshot = {
   teamId: string;
   teamName: string;
   color: string;
   savedAt: string; // ISO timestamp
   games: OfflineGame[];
+  /** Optional: absent for clubs without practice plans, and in copies saved before they existed. */
+  practices?: OfflinePractice[];
 };
 
 export type OfflineStore = {
@@ -111,5 +126,21 @@ export function buildOfflineGame(input: {
     units,
     bench,
     availability,
+  };
+}
+
+export function buildOfflinePractice(input: {
+  plan: { id: string; title: string; practiceDate: string | null; startTime: string | null; goals: string; tags: string[] };
+  items: { name: string; minutes: number; notes: string }[];
+}): OfflinePractice {
+  const times = clockTimes(input.plan.startTime, input.items.map((i) => i.minutes));
+  return {
+    id: input.plan.id,
+    title: input.plan.title,
+    date: input.plan.practiceDate,
+    goals: input.plan.goals,
+    tags: input.plan.tags,
+    totalMinutes: totalMinutes(input.items),
+    items: input.items.map((it, i) => ({ time: times[i], name: it.name, minutes: it.minutes, notes: it.notes })),
   };
 }

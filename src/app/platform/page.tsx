@@ -6,9 +6,9 @@ import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
 import { SubmitButton } from "@/components/submit-button";
 import { OpenClubButton } from "@/components/open-club-button";
-import { createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation } from "@/actions/platform";
+import { createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation, setClubFeature } from "@/actions/platform";
 import { db } from "@/lib/db";
-import { clubSettings, teams, TEAM_GENDERS } from "@/lib/db/schema";
+import { clubFeatures, clubSettings, teams, CLUB_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { isCurrentUserPlatformAdmin, requirePlatformAdmin } from "@/lib/platform";
 import { parsePlatformAdminIds } from "@/lib/platform-admin";
 
@@ -45,11 +45,17 @@ export default async function PlatformPage({
   const params = await searchParams;
   const clerk = await clerkClient();
 
-  const [{ data: orgs }, settings, teamCounts] = await Promise.all([
+  const [{ data: orgs }, settings, teamCounts, featureRows] = await Promise.all([
     clerk.organizations.getOrganizationList({ limit: 100, orderBy: "name", includeMembersCount: true }),
     db.select().from(clubSettings),
     db.select({ orgId: teams.orgId, n: count() }).from(teams).groupBy(teams.orgId),
+    db.select().from(clubFeatures),
   ]);
+  const featuresByOrg = new Map<string, Set<string>>();
+  for (const f of featureRows) {
+    if (!featuresByOrg.has(f.orgId)) featuresByOrg.set(f.orgId, new Set());
+    featuresByOrg.get(f.orgId)!.add(f.feature);
+  }
   const genderByOrg = new Map(settings.map((s) => [s.orgId, s.gender]));
   const teamsByOrg = new Map(teamCounts.map((t) => [t.orgId, t.n]));
 
@@ -170,6 +176,26 @@ export default async function PlatformPage({
                       </div>
                     </div>
                     {isAdmin && <OpenClubButton orgId={o.id} />}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-3 py-2">
+                    <span className="text-xs font-medium text-slate-500">Premium</span>
+                    {CLUB_FEATURES.map((f) => {
+                      const on = featuresByOrg.get(o.id)?.has(f.key) ?? false;
+                      return (
+                        <form key={f.key} action={setClubFeature} className="flex items-center gap-2">
+                          <input type="hidden" name="orgId" value={o.id} />
+                          <input type="hidden" name="feature" value={f.key} />
+                          <input type="hidden" name="enabled" value={on ? "false" : "true"} />
+                          <span className={on ? "text-sm font-medium text-slate-900" : "text-sm text-slate-500"}>
+                            {f.label}: {on ? "on" : "off"}
+                          </span>
+                          <SubmitButton variant="secondary" pendingLabel="Saving…">
+                            {on ? "Turn off" : "Turn on"}
+                          </SubmitButton>
+                        </form>
+                      );
+                    })}
                   </div>
 
                   {invites.length > 0 && (

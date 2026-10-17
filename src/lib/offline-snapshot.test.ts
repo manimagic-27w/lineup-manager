@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SIXES_SLOTS, SLOTS } from "./db/schema";
-import { buildOfflineGame, gameFormatLabel } from "./offline-snapshot";
+import { buildOfflineGame, buildOfflinePractice, gameFormatLabel } from "./offline-snapshot";
 
 const roster = [
   { id: "a", name: "Ava", number: "7", isGuest: false, archivedAt: null },
@@ -62,5 +62,28 @@ describe("buildOfflineGame", () => {
     expect(gameFormatLabel("sixes", "girls")).toBe("Sixes (6 a side)");
     expect(gameFormatLabel("sevens", "boys")).toBe("Sevens (8 a side)");
     expect(gameFormatLabel("field", "boys")).toBe("Field (10 starters)");
+  });
+});
+
+describe("buildOfflinePractice", () => {
+  it("works out clock times and the total from the start time", () => {
+    const built = buildOfflinePractice({
+      plan: { id: "p1", title: "Ground balls", practiceDate: "2026-10-20", startTime: "18:00", goals: "Scoop", tags: ["Ground balls"] },
+      items: [
+        { name: "Warm-up", minutes: 10, notes: "" },
+        { name: "Box GBs", minutes: 20, notes: "Low hands" },
+      ],
+    });
+    expect(built.totalMinutes).toBe(30);
+    expect(built.items.map((i) => i.time)).toEqual(["6:00 PM", "6:10 PM"]);
+    expect(built.items[1].notes).toBe("Low hands");
+  });
+
+  it("leaves times empty without a start time", () => {
+    const built = buildOfflinePractice({
+      plan: { id: "p2", title: "x", practiceDate: null, startTime: null, goals: "", tags: [] },
+      items: [{ name: "A", minutes: 5, notes: "" }],
+    });
+    expect(built.items[0].time).toBeNull();
   });
 });

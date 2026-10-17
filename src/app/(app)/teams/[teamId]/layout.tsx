@@ -1,6 +1,7 @@
 import { requireTeamAccess } from "@/lib/auth";
 import { TeamNav } from "@/components/team-nav";
 import { OfflineSync } from "@/components/offline-sync";
+import { clubHasFeature } from "@/lib/features";
 import { themeSwatch } from "@/lib/utils";
 
 export default async function TeamLayout({
@@ -11,7 +12,8 @@ export default async function TeamLayout({
   params: Promise<{ teamId: string }>;
 }) {
   const { teamId } = await params;
-  const { team } = await requireTeamAccess(teamId);
+  const { team, orgId } = await requireTeamAccess(teamId);
+  const showPractices = await clubHasFeature(orgId, "practice_plans");
 
   return (
     <div className="flex flex-1 flex-col">
@@ -21,7 +23,7 @@ export default async function TeamLayout({
       >
         <h1 className="text-xl font-semibold text-slate-900">{team.name}</h1>
         <OfflineSync teamId={teamId} />
-        <TeamNav teamId={teamId} />
+        <TeamNav teamId={teamId} showPractices={showPractices} />
       </div>
       <div className="flex flex-1 flex-col">{children}</div>
     </div>

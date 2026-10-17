@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
-import { clubSettings, TEAM_GENDERS } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { clubFeatures, clubSettings, CLUB_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { requirePlatformAdmin } from "@/lib/platform";
 
 const GENDER_KEYS = TEAM_GENDERS.map((t) => t.key) as [string, ...string[]];
@@ -174,4 +175,36 @@ export async function ensureClubAccess(orgId: string): Promise<{ ok: boolean; er
   } catch (e) {
     return { ok: false, error: clerkMessage(e) };
   }
+}
+
+const FEATURE_KEYS = CLUB_FEATURES.map((f) => f.key) as [string, ...string[]];
+const featureSchema = z.object({
+  orgId: z.string().min(1),
+  feature: z.enum(FEATURE_KEYS),
+  enabled: z.enum(["true", "false"]),
+});
+
+/** Switches a premium feature on or off for one club. Turning it off hides the feature; what
+ *  the club already created with it is kept and comes back if it is switched on again. */
+export async function setClubFeature(formData: FormData) {
+  const { userId } = await requirePlatformAdmin();
+  const parsed = featureSchema.safeParse({
+    orgId: formData.get("orgId"),
+    feature: formData.get("feature"),
+    enabled: formData.get("enabled"),
+  });
+  if (!parsed.success) go("error", "Couldn't update that feature.");
+  const { orgId, feature, enabled } = parsed.data;
+  const label = CLUB_FEATURES.find((f) => f.key === feature)?.label ?? feature;
+
+  if (enabled === "true") {
+    await db
+      .insert(clubFeatures)
+      .values({ orgId, feature, enabledBy: userId })
+      .onConflictDoNothing();
+  } else {
+    await db.delete(clubFeatures).where(and(eq(clubFeatures.orgId, orgId), eq(clubFeatures.feature, feature)));
+  }
+  revalidatePath("/platform");
+  go("notice", `${label} ${enabled === "true" ? "enabled" : "disabled"}.`);
 }

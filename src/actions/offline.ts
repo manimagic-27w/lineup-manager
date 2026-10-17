@@ -3,15 +3,17 @@
 import { z } from "zod";
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, gamePlayers, lineupSlots, players, tournaments } from "@/lib/db/schema";
+import { games, gamePlayers, lineupSlots, players, practicePlanItems, practicePlans, tournaments } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { slotsFor } from "@/lib/lineup-slots";
-import { buildOfflineGame, gameFormatLabel, type OfflineTeamSnapshot } from "@/lib/offline-snapshot";
+import { buildOfflineGame, buildOfflinePractice, gameFormatLabel, type OfflineTeamSnapshot } from "@/lib/offline-snapshot";
+import { clubHasFeature } from "@/lib/features";
 import { themeSwatch } from "@/lib/utils";
 
 // Upcoming games (plus the last couple of days, so a game that is under way is still there) are
 // all a coach needs at a field; older ones are in History.
 const MAX_GAMES = 15;
+const MAX_PRACTICES = 6;
 const LOOK_BACK_DAYS = 2;
 
 /**
@@ -20,7 +22,7 @@ const LOOK_BACK_DAYS = 2;
  */
 export async function getOfflineSnapshot(teamId: string): Promise<OfflineTeamSnapshot> {
   const id = z.string().uuid().parse(teamId);
-  const { team } = await requireTeamAccess(id);
+  const { team, orgId } = await requireTeamAccess(id);
 
   const since = new Date(Date.now() - LOOK_BACK_DAYS * 86_400_000).toISOString().slice(0, 10);
   const upcoming = await db
@@ -39,11 +41,33 @@ export async function getOfflineSnapshot(teamId: string): Promise<OfflineTeamSna
   ]);
   const tournamentName = new Map(tournamentRows.map((t) => [t.id, t.name]));
 
+  // Practice plans are a premium feature: only clubs that have it get them in the offline copy.
+  let practices: OfflineTeamSnapshot["practices"];
+  if (await clubHasFeature(orgId, "practice_plans")) {
+    const plans = await db
+      .select()
+      .from(practicePlans)
+      .where(and(eq(practicePlans.teamId, id), eq(practicePlans.isTemplate, false), gte(practicePlans.practiceDate, since)))
+      .orderBy(asc(practicePlans.practiceDate), asc(practicePlans.startTime))
+      .limit(MAX_PRACTICES);
+    const planItems = plans.length
+      ? await db
+          .select()
+          .from(practicePlanItems)
+          .where(inArray(practicePlanItems.planId, plans.map((p) => p.id)))
+          .orderBy(asc(practicePlanItems.position))
+      : [];
+    practices = plans.map((plan) =>
+      buildOfflinePractice({ plan, items: planItems.filter((i) => i.planId === plan.id) }),
+    );
+  }
+
   return {
     teamId: id,
     teamName: team.name,
     color: themeSwatch(team.theme),
     savedAt: new Date().toISOString(),
+    practices,
     games: upcoming.map((g) =>
       buildOfflineGame({
         game: { id: g.id, date: g.date, opponent: g.opponent, notes: g.notes },

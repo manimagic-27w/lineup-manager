@@ -116,8 +116,68 @@
         a.appendChild(el("span", "muted", sub));
         card.appendChild(a);
       });
+      if (t.practices && t.practices.length) {
+        var ph = el("p", "muted", "Practices");
+        ph.style.margin = "14px 0 2px";
+        ph.style.fontWeight = "600";
+        card.appendChild(ph);
+        t.practices.forEach(function (p) {
+          var a = el("a", "game");
+          a.href = "#/p/" + encodeURIComponent(id) + "/" + encodeURIComponent(p.id);
+          var strong = el("strong", null, (p.date ? day(p.date) + " \u00b7 " : "") + p.title);
+          if (p.date === today) strong.appendChild(el("span", "tag", "Today"));
+          a.appendChild(strong);
+          a.appendChild(el("span", "muted", p.totalMinutes + " min" + (p.tags.length ? " \u00b7 " + p.tags.join(", ") : "")));
+          card.appendChild(a);
+        });
+      }
       app.appendChild(card);
     });
+  }
+
+  function renderPractice(store, teamId, planId) {
+    clear();
+    var t = store.teams[teamId];
+    var p = t && (t.practices || []).filter(function (x) { return x.id === planId; })[0];
+    var back = el("a", "btn", "\u2190 All games & practices");
+    back.href = "#/";
+    app.appendChild(back);
+    if (!p) {
+      app.appendChild(el("p", "muted", "That practice plan isn\u2019t in the saved copy.")).style.marginTop = "14px";
+      return;
+    }
+    banner.textContent = "Offline - saved copy from " + when(t.savedAt) + ". Changes made after that aren\u2019t shown.";
+    var head = el("div");
+    head.style.margin = "14px 0 0";
+    head.appendChild(el("h1", null, p.title));
+    head.appendChild(el("p", "muted", t.teamName + (p.date ? " \u00b7 " + day(p.date) : "") + " \u00b7 " + p.totalMinutes + " min" + (p.tags.length ? " \u00b7 " + p.tags.join(", ") : "")));
+    app.appendChild(head);
+    if (p.goals) {
+      app.appendChild(el("h2", null, "Goals"));
+      var g = el("p", null, p.goals);
+      g.style.whiteSpace = "pre-line";
+      app.appendChild(g);
+    }
+    app.appendChild(el("h2", null, "Drills"));
+    if (!p.items.length) app.appendChild(el("p", "muted", "No drills in this plan."));
+    var table = el("table");
+    var body = el("tbody");
+    p.items.forEach(function (it, i) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "l", it.time || String(i + 1) + "."));
+      var td = el("td");
+      td.appendChild(el("strong", null, it.name));
+      td.appendChild(el("span", "muted", "  " + it.minutes + " min"));
+      if (it.notes) {
+        var n = el("div", "muted", it.notes);
+        n.style.whiteSpace = "pre-line";
+        td.appendChild(n);
+      }
+      tr.appendChild(td);
+      body.appendChild(tr);
+    });
+    table.appendChild(body);
+    app.appendChild(table);
   }
 
   function renderGame(store, teamId, gameId) {
@@ -193,6 +253,8 @@
     if (!store || !Object.keys(store.teams).length) return renderEmpty();
     var m = /^#\/g\/([^/]+)\/([^/]+)$/.exec(location.hash);
     if (m) return renderGame(store, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    var pm = /^#\/p\/([^/]+)\/([^/]+)$/.exec(location.hash);
+    if (pm) return renderPractice(store, decodeURIComponent(pm[1]), decodeURIComponent(pm[2]));
     renderList(store);
     window.scrollTo(0, 0);
   }

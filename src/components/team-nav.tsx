@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function TeamNav({ teamId }: { teamId: string }) {
+export function TeamNav({ teamId, showPractices = false }: { teamId: string; showPractices?: boolean }) {
   const pathname = usePathname();
   const tabs = [
     { href: `/teams/${teamId}/roster`, label: "Roster" },
     { href: `/teams/${teamId}/games`, label: "Games" },
+    ...(showPractices ? [{ href: `/teams/${teamId}/practices`, label: "Practices" }] : []),
     { href: `/teams/${teamId}/stats`, label: "Stats" },
     { href: `/teams/${teamId}/history`, label: "History" },
     { href: `/teams/${teamId}/activity`, label: "Activity" },

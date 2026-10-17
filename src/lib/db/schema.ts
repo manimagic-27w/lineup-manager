@@ -446,3 +446,74 @@ export const gamesRelations = relations(games, ({ one, many }) => ({
   lineup: many(lineupSlots),
   stats: many(statValues),
 }));
+
+
+/* ------------------------------------------------------------------ */
+/* Premium features + practice plans                                   */
+/* ------------------------------------------------------------------ */
+
+// Paid add-ons a platform admin switches on per club (see /platform). A club without a row for a
+// feature does not have it. Add new premium features here and to club_features rows as needed.
+export const CLUB_FEATURES = [{ key: "practice_plans", label: "Practice plans" }] as const;
+export type ClubFeatureKey = (typeof CLUB_FEATURES)[number]["key"];
+
+export const clubFeatures = pgTable(
+  "club_features",
+  {
+    orgId: text("org_id").notNull(), // Clerk organization id - the "club"
+    feature: text("feature").notNull(), // a CLUB_FEATURES key
+    enabledAt: timestamp("enabled_at", { withTimezone: true }).notNull().defaultNow(),
+    enabledBy: text("enabled_by").notNull(), // Clerk user id of the platform admin
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.feature] })],
+);
+
+// A practice plan (or, with isTemplate, a reusable template that new plans are copied from).
+// practiceDate/startTime are optional; startTime is "HH:MM" (24h) and only drives the clock times
+// shown next to each drill. Tags are free-form short labels ("Ground balls", "Clears").
+export const practicePlans = pgTable("practice_plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  teamId: uuid("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  practiceDate: date("practice_date"),
+  startTime: text("start_time"),
+  goals: text("goals").notNull().default(""),
+  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  isTemplate: boolean("is_template").notNull().default(false),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The ordered drills inside a plan. These are copies, not links: editing the drill library later
+// never rewrites a plan that already used it.
+export const practicePlanItems = pgTable("practice_plan_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  planId: uuid("plan_id")
+    .notNull()
+    .references(() => practicePlans.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  name: text("name").notNull(),
+  minutes: integer("minutes").notNull().default(10),
+  notes: text("notes").notNull().default(""),
+});
+
+// A team's reusable drills, picked from when building a plan.
+export const drills = pgTable(
+  "drills",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    minutes: integer("minutes").notNull().default(10),
+    notes: text("notes").notNull().default(""),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("drills_team_name_unique").on(t.teamId, t.name)],
+);
