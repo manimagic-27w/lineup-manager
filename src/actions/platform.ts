@@ -124,11 +124,14 @@ export async function revokeClubInvitation(formData: FormData) {
 /** Revokes a pending invitation and sends a fresh one to the same address. */
 export async function resendClubInvitation(formData: FormData) {
   const { userId } = await requirePlatformAdmin();
-  const parsed = invitationSchema.extend({ email: z.string().email() }).parse({
-    orgId: formData.get("orgId"),
-    invitationId: formData.get("invitationId"),
-    email: formData.get("email"),
-  });
+  const parsed = invitationSchema
+    .extend({ email: z.string().email(), role: z.enum(["org:admin", "org:member"]).default("org:admin") })
+    .parse({
+      orgId: formData.get("orgId"),
+      invitationId: formData.get("invitationId"),
+      email: formData.get("email"),
+      role: formData.get("role") || "org:admin",
+    });
   const clerk = await clerkClient();
   try {
     await clerk.organizations.revokeOrganizationInvitation({
@@ -139,12 +142,12 @@ export async function resendClubInvitation(formData: FormData) {
     await clerk.organizations.createOrganizationInvitation({
       organizationId: parsed.orgId,
       emailAddress: parsed.email,
-      role: "org:admin",
+      role: parsed.role,
       inviterUserId: userId,
       redirectUrl: `${getAppUrl()}/`,
     });
   } catch (e) {
-    go("error", `Couldn't resend the invitation: ${clerkMessage(e)}`);
+    go("error", `The old invitation was cancelled but a new one couldn't be sent - use "Invite admin" to send it again: ${clerkMessage(e)}`);
   }
   revalidatePath("/platform");
   go("notice", `Sent a new invitation to ${parsed.email}.`);

@@ -7,6 +7,7 @@ import {
   listPendingInvitations,
   revokeInvitation,
   removeOrgMember,
+  resendInvitation,
   updateMemberRole,
 } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
@@ -167,12 +168,22 @@ export default async function AdminPage() {
             {invitations.map((inv) => (
               <li key={inv.id} className="flex items-center justify-between p-4 text-sm">
                 <span className="text-slate-600">{inv.email} - invited, pending</span>
-                <form action={revokeInvitation}>
-                  <input type="hidden" name="invitationId" value={inv.id} />
-                  <SubmitButton variant="secondary" pendingLabel="Revoking…">
-                    Revoke
-                  </SubmitButton>
-                </form>
+                <div className="flex gap-2">
+                  <form action={resendInvitation}>
+                    <input type="hidden" name="invitationId" value={inv.id} />
+                    <input type="hidden" name="email" value={inv.email} />
+                    <input type="hidden" name="role" value={inv.role} />
+                    <SubmitButton variant="secondary" pendingLabel="Sending…">
+                      Resend
+                    </SubmitButton>
+                  </form>
+                  <form action={revokeInvitation}>
+                    <input type="hidden" name="invitationId" value={inv.id} />
+                    <SubmitButton variant="secondary" pendingLabel="Revoking…">
+                      Revoke
+                    </SubmitButton>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>

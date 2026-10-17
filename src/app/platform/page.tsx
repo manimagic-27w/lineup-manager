@@ -53,7 +53,7 @@ export default async function PlatformPage({
   const genderByOrg = new Map(settings.map((s) => [s.orgId, s.gender]));
   const teamsByOrg = new Map(teamCounts.map((t) => [t.orgId, t.n]));
 
-  const invitesByOrg = new Map<string, { id: string; email: string }[]>();
+  const invitesByOrg = new Map<string, { id: string; email: string; role: string }[]>();
   await Promise.all(
     orgs.map(async (o) => {
       const { data } = await clerk.organizations.getOrganizationInvitationList({
@@ -63,7 +63,7 @@ export default async function PlatformPage({
       });
       invitesByOrg.set(
         o.id,
-        data.map((i) => ({ id: i.id, email: i.emailAddress })),
+        data.map((i) => ({ id: i.id, email: i.emailAddress, role: i.role })),
       );
     }),
   );
@@ -176,12 +176,13 @@ export default async function PlatformPage({
                     <ul className="space-y-1 rounded-md border border-dashed border-slate-300 p-2">
                       {invites.map((inv) => (
                         <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                          <span className="text-slate-600">{inv.email} &ndash; invited, pending</span>
+                          <span className="text-slate-600">{inv.email} &ndash; invited as {inv.role === "org:admin" ? "admin" : "coach"}, pending</span>
                           <span className="flex gap-2">
                             <form action={resendClubInvitation}>
                               <input type="hidden" name="orgId" value={o.id} />
                               <input type="hidden" name="invitationId" value={inv.id} />
                               <input type="hidden" name="email" value={inv.email} />
+                              <input type="hidden" name="role" value={inv.role} />
                               <SubmitButton variant="secondary" pendingLabel="Sending…">
                                 Resend
                               </SubmitButton>

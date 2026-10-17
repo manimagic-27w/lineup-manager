@@ -242,6 +242,48 @@ export async function revokeInvitation(formData: FormData) {
   revalidatePath("/admin");
 }
 
+const resendSchema = z.object({
+  invitationId: z.string().min(1),
+  email: z.string().trim().email(),
+  role: z.enum(["org:admin", "org:member"]),
+});
+
+/**
+ * Sends a pending invitation's email again. Clerk has no "resend" call - a second invitation to
+ * an address that already has a pending one is refused - so this swaps the pending invitation for
+ * a fresh one to the same address with the same role (the old email's link stops working; the new
+ * email's does). Any team picked at invite time is held by email in pending_coach_assignments,
+ * which this leaves alone, so the coach still lands on that team after accepting.
+ */
+export async function resendInvitation(formData: FormData) {
+  const session = await requireOrgAdmin();
+  const parsed = resendSchema.parse({
+    invitationId: formData.get("invitationId"),
+    email: formData.get("email"),
+    role: formData.get("role") || "org:member",
+  });
+  const clerk = await clerkClient();
+  await clerk.organizations.revokeOrganizationInvitation({
+    organizationId: session.orgId,
+    invitationId: parsed.invitationId,
+    requestingUserId: session.userId,
+  });
+  const invite = {
+    organizationId: session.orgId,
+    emailAddress: parsed.email,
+    role: parsed.role,
+    inviterUserId: session.userId,
+    redirectUrl: `${getAppUrl()}/`,
+  };
+  try {
+    await clerk.organizations.createOrganizationInvitation(invite);
+  } catch {
+    // One more try so a brief hiccup doesn't leave the person with no invitation at all.
+    await clerk.organizations.createOrganizationInvitation(invite);
+  }
+  revalidatePath("/admin");
+}
+
 const assignSchema = z.object({ teamId: z.string().uuid(), userId: z.string().min(1) });
 
 export async function assignCoachToTeam(formData: FormData) {
