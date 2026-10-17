@@ -18,7 +18,7 @@ import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 import { coreThenGuests } from "@/lib/guests";
-import { slotKeysFor, slotsFor } from "@/lib/lineup-slots";
+import { formatAllowsSubs, slotKeysFor, slotsFor } from "@/lib/lineup-slots";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
@@ -239,7 +239,7 @@ export async function deleteGame(formData: FormData) {
 /** Full availability + lineup view for the game-day screen. `format` picks which fixed slot
  *  set (SLOTS or SIXES_SLOTS) the lineup board renders - pass the game's own `format` column
  *  (callers already have the game row loaded before calling this). */
-export async function getGameDay(teamId: string, gameId: string, format: string = "field") {
+export async function getGameDay(teamId: string, gameId: string, format: string = "field", subs: boolean = false) {
   const { team } = await requireTeamAccess(teamId);
 
   const roster = await db.select().from(players).where(eq(players.teamId, teamId)).orderBy(asc(players.name));
@@ -258,8 +258,47 @@ export async function getGameDay(teamId: string, gameId: string, format: string 
       ...p,
       status: availabilityByPlayer.get(p.id) ?? "No Response",
     })),
-    slots: slotsFor(format, team.gender).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
+    slots: slotsFor(format, team.gender, subs).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
   };
+}
+
+const setSubsSchema = z.object({
+  teamId: z.string().uuid(),
+  gameId: z.string().uuid(),
+  subs: z.enum(["true", "false"]),
+});
+
+/**
+ * Turns the sub spots (2 attack, 3 midfield, 2 defense) on or off for one game. Turning them off
+ * only hides them - picks already made stay saved and reappear if the switch is turned back on.
+ * Only Field and Sevens games have subs; Sixes ignores the setting.
+ */
+export async function setGameSubs(teamId: string, gameId: string, subs: boolean) {
+  const parsed = setSubsSchema.parse({ teamId, gameId, subs: String(subs) });
+  const { userId } = await requireTeamAccess(parsed.teamId);
+  const on = parsed.subs === "true";
+
+  const [game] = await db
+    .select({ date: games.date, opponent: games.opponent, format: games.format })
+    .from(games)
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
+    .limit(1);
+  if (!game) throw new Error("Game not found.");
+  if (!formatAllowsSubs(game.format)) throw new Error("Sixes games don't have subs.");
+
+  await db
+    .update(games)
+    .set({ subs: on })
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
+
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "game_subs_changed",
+    details: `${on ? "on" : "off"} ${game.date}${game.opponent ? ` vs ${game.opponent}` : ""}`,
+  });
+  await broadcastTeamUpdate(parsed.teamId, "lineup", parsed.gameId);
+  revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
 }
 
 const availabilitySchema = z.object({
@@ -392,12 +431,12 @@ export async function setLineupSlot(formData: FormData) {
   const { userId, team } = await requireTeamAccess(parsed.teamId);
 
   const [game] = await db
-    .select({ format: games.format })
+    .select({ format: games.format, subs: games.subs })
     .from(games)
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
     .limit(1);
   if (!game) throw new Error("Game not found.");
-  const validKeys = slotKeysFor(game.format, team.gender);
+  const validKeys = slotKeysFor(game.format, team.gender, game.subs);
   if (!validKeys.has(parsed.slotKey)) throw new Error("Unrecognized lineup slot for this game's format.");
 
   await db.transaction(async (tx) => {

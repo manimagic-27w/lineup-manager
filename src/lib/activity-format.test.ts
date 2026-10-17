@@ -105,6 +105,8 @@ describe("describeActivity", () => {
     expect(describeActivity("team_gender_changed", "boys", refs())).toBe("changed the team to Boys");
     expect(describeActivity("team_gender_changed", "girls", refs())).toBe("changed the team to Girls");
     expect(describeActivity("club_gender_changed", "boys", refs())).toBe("changed the club to Boys");
+    expect(describeActivity("game_subs_changed", "on 2026-10-03 vs Eagles", refs())).toMatch(/^turned subs on for the game on .* vs Eagles$/);
+    expect(describeActivity("game_subs_changed", "off", refs())).toBe("turned subs off for a game");
     const put = describeActivity("lineup_set", JSON.stringify({ gameId: G1, slotKey: "BA3", playerId: P1 }), refs());
     expect(put).toContain("put Jordan Reyes at Attack 3");
   });

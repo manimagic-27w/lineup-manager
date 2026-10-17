@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "subs" boolean DEFAULT false NOT NULL;

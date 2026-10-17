@@ -64,6 +64,13 @@
       "when": 1792197440161,
       "tag": "0008_peaceful_warbird",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792255625068,
+      "tag": "0009_lame_dark_beast",
+      "breakpoints": true
     }
   ]
 }

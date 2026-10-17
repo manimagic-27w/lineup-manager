@@ -2,7 +2,7 @@
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, lineupSlots, type SlotPosition } from "@/lib/db/schema";
+import { games, lineupSlots, SUB_SLOTS, type SlotPosition } from "@/lib/db/schema";
 import { ALL_LINEUP_SLOTS } from "@/lib/lineup-slots";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
@@ -18,6 +18,7 @@ const SLOT_POSITION = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.pos])) a
   string,
   SlotPosition
 >;
+const SUB_SLOT_KEYS = new Set<string>(SUB_SLOTS.map((s) => s.key));
 const SLOT_LABEL = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.label])) as Record<
   string,
   string
@@ -77,6 +78,8 @@ export async function getStartHistory(teamId: string): Promise<PlayerStartHistor
     const game = gameById.get(slot.gameId);
     const position = SLOT_POSITION[slot.slotKey];
     if (!game || !position) continue;
+    // Subs (SUB_SLOTS) are not starts.
+    if (SUB_SLOT_KEYS.has(slot.slotKey)) continue;
 
     const record: StartRecord = {
       gameId: game.id,

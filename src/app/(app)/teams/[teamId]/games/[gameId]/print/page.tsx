@@ -27,7 +27,7 @@ export default async function LineupPrintPage({
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const { roster, slots } = await getGameDay(teamId, gameId, game.format);
+  const { roster, slots } = await getGameDay(teamId, gameId, game.format, game.subs);
   // Guests are tagged so the printed sheet shows who is not on the core roster.
   const activeRoster = roster
     .filter((p) => !p.archivedAt)
@@ -64,12 +64,17 @@ export default async function LineupPrintPage({
               <tbody>
                 {slots
                   .filter((s) => s.unit === unit)
-                  .map((slot) => {
+                  .map((slot, i, unitSlots) => {
                     const player = slot.playerId
                       ? playerById.get(slot.playerId)
                       : undefined;
+                    // Subs follow the starters, set off by a heavier rule above the first one.
+                    const firstSub = !!slot.sub && !unitSlots[i - 1]?.sub;
                     return (
-                      <tr key={slot.key} className="border-b border-slate-100">
+                      <tr
+                        key={slot.key}
+                        className={firstSub ? "border-t-2 border-t-slate-300 border-b border-b-slate-100" : "border-b border-slate-100"}
+                      >
                         <td className="w-28 py-1 pr-2 align-top text-slate-500">
                           {slot.label}
                         </td>

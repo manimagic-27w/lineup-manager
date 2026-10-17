@@ -164,6 +164,11 @@ export function describeActivity(action: string, details: string | null, refs: A
       if (!p.playerId) return `cleared ${slot}${where}`;
       return `put ${playerName(p.playerId, refs)} at ${slot}${where}`;
     }
+    case "game_subs_changed": {
+      const on = d.startsWith("on");
+      const rest = d.replace(/^(on|off)\s*/, "");
+      return `turned subs ${on ? "on" : "off"}${rest ? ` for the game on ${gameLabelFromText(rest)}` : " for a game"}`;
+    }
     case "game_created":
       return d ? `scheduled a game on ${gameLabelFromText(d)}` : "scheduled a game";
     case "game_updated":

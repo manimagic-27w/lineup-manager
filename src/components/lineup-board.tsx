@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { saveWithRetry } from "@/lib/save-with-retry";
 import { SaveStatusIndicator, type SaveStatus } from "@/components/save-status-indicator";
 
-type Slot = { key: string; label: string; unit: string; pos: string; playerId: string | null };
+type Slot = { key: string; label: string; unit: string; pos: string; sub?: boolean; playerId: string | null };
 type RosterPlayer = {
   id: string;
   name: string;
@@ -171,7 +171,8 @@ export function LineupBoard({
             <ul className="space-y-2">
               {slots
                 .filter((s) => s.unit === unit)
-                .map((slot) => {
+                .map((slot, slotIndex, unitSlots) => {
+                  const firstSub = !!slot.sub && !unitSlots[slotIndex - 1]?.sub;
                   const status = saveStatus[slot.key] ?? "idle";
                   // While idle, always trust the server's slot.playerId (the normal case, and
                   // what lets another coach's realtime update show up here). Only while a save
@@ -219,7 +220,13 @@ export function LineupBoard({
                         });
 
                   return (
-                    <li key={slot.key} className="flex items-center justify-between gap-2">
+                    <li
+                      key={slot.key}
+                      className={cn(
+                        "flex items-center justify-between gap-2",
+                        firstSub && "mt-3 border-t border-dashed border-slate-300 pt-3",
+                      )}
+                    >
                       <span className="w-28 shrink-0 text-sm text-slate-600">{slot.label}</span>
                       {canEdit ? (
                         <>

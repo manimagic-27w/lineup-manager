@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LINEUP_SLOTS, fieldFormatLabel, slotKeysFor, slotsFor } from "./lineup-slots";
+import { ALL_LINEUP_SLOTS, fieldFormatLabel, formatAllowsSubs, slotKeysFor, slotsFor } from "./lineup-slots";
 
 const count = (slots: readonly { unit: string }[], unit: string) => slots.filter((s) => s.unit === unit).length;
 
@@ -42,6 +42,30 @@ describe("lineup slots by format and gender", () => {
   it("has unique keys across every slot set", () => {
     const keys = ALL_LINEUP_SLOTS.map((s) => s.key);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("adds 2 attack, 3 midfield and 2 defense subs to field and sevens games when subs are on", () => {
+    for (const [format, gender, starters] of [
+      ["field", "girls", 12],
+      ["field", "boys", 10],
+      ["sevens", "girls", 8],
+    ] as const) {
+      const s = slotsFor(format, gender, true);
+      const subs = s.filter((x) => x.sub);
+      expect(s).toHaveLength(starters + 7);
+      expect(count(subs, "Attack")).toBe(2);
+      expect(count(subs, "Midfield")).toBe(3);
+      expect(count(subs, "Defense")).toBe(2);
+      expect(subs.every((x) => x.unit !== "Goalie")).toBe(true);
+      expect(slotsFor(format, gender, false).some((x) => x.sub)).toBe(false);
+    }
+  });
+
+  it("never gives sixes games subs", () => {
+    expect(formatAllowsSubs("sixes")).toBe(false);
+    expect(slotsFor("sixes", "girls", true)).toHaveLength(6);
+    expect(slotKeysFor("field", "girls", true).has("XA1")).toBe(true);
+    expect(slotKeysFor("field", "girls", false).has("XA1")).toBe(false);
   });
 
   it("labels the field format by gender", () => {

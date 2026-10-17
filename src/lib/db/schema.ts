@@ -146,6 +146,20 @@ export const SIXES_SLOTS = [
   { key: "SG1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
 ] as const;
 
+// Optional substitutes for Field and Sevens games, switched on per game (games.subs): 2 attack,
+// 3 midfield and 2 defense. They share the starters' unit/pos values so the board groups them
+// under the right unit, but keys of their own ("X..."), and `sub: true` so History does not
+// count them as starts. A game with subs off simply doesn't show them; picks are kept.
+export const SUB_SLOTS = [
+  { key: "XA1", label: "Attack Sub 1", unit: "Attack", pos: "Attack", sub: true },
+  { key: "XA2", label: "Attack Sub 2", unit: "Attack", pos: "Attack", sub: true },
+  { key: "XM1", label: "Middie Sub 1", unit: "Midfield", pos: "Mid", sub: true },
+  { key: "XM2", label: "Middie Sub 2", unit: "Midfield", pos: "Mid", sub: true },
+  { key: "XM3", label: "Middie Sub 3", unit: "Midfield", pos: "Mid", sub: true },
+  { key: "XD1", label: "Defense Sub 1", unit: "Defense", pos: "Def", sub: true },
+  { key: "XD2", label: "Defense Sub 2", unit: "Defense", pos: "Def", sub: true },
+] as const;
+
 // "7s" - unlike Sixes, this format keeps the normal Attack/Mid/Def/Goalie positions, just
 // fewer of each (2/3/2/1 = 7 field players + 1 goalie). Its slots reuse the exact same
 // unit/pos values as SLOTS (not a new "Sixes"-style bucket), so every helper that groups or
@@ -297,6 +311,8 @@ export const games = pgTable("games", {
   // Defaults to "field" so every existing game keeps its current lineup board with no action
   // needed.
   format: text("format").notNull().default("field"),
+  // Whether the lineup board also offers sub spots (SUB_SLOTS) - only Field and Sevens games use it.
+  subs: boolean("subs").notNull().default(false),
   // Nullable and onDelete "set null" on purpose: deleting a season should never delete its games,
   // just unassign them back to "No season."
   seasonId: uuid("season_id").references(() => seasons.id, { onDelete: "set null" }),

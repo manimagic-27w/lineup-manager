@@ -52,7 +52,7 @@ export async function getOfflineSnapshot(teamId: string): Promise<OfflineTeamSna
         roster,
         availability: availability.filter((a) => a.gameId === g.id),
         lineup: lineup.filter((l) => l.gameId === g.id),
-        slots: slotsFor(g.format, team.gender),
+        slots: slotsFor(g.format, team.gender, g.subs),
       }),
     ),
   };

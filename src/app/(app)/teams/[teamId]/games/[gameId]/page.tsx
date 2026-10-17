@@ -9,7 +9,8 @@ import { orderImportSources } from "@/lib/tournament-groups";
 import { ImportAvailability } from "@/components/import-availability";
 import { AddGuest } from "@/components/add-guest";
 import { guestsAvailableForGame } from "@/lib/guests";
-import { fieldFormatLabel } from "@/lib/lineup-slots";
+import { fieldFormatLabel, formatAllowsSubs } from "@/lib/lineup-slots";
+import { SubsToggle } from "@/components/subs-toggle";
 import { EXPERIENCE_LEVELS_BY_TEAM_TYPE, TeamType } from "@/lib/db/schema";
 import { gameOutcome } from "@/lib/game-record";
 import { AvailabilityList } from "@/components/availability-list";
@@ -32,7 +33,7 @@ export default async function GameDayPage({
   if (!game) notFound();
 
   const [{ roster, slots }, seasons, tournaments, allGames, guestRoster] = await Promise.all([
-    getGameDay(teamId, gameId, game.format),
+    getGameDay(teamId, gameId, game.format, game.subs),
     listSeasons(teamId),
     listTournaments(teamId),
     listGames(teamId),
@@ -263,6 +264,7 @@ export default async function GameDayPage({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
         <section>
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Lineup</h2>
+          {formatAllowsSubs(game.format) && <SubsToggle teamId={teamId} gameId={gameId} initialOn={game.subs} />}
           <LineupBoard teamId={teamId} gameId={gameId} format={game.format} slots={slots} roster={displayRoster} canEdit />
 
           <form action={updateGame} className="mt-4">
