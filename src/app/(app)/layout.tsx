@@ -5,12 +5,14 @@ import { Logo } from "@/components/logo";
 import { OrgSwitcher } from "@/components/org-switcher";
 import { requireOrgSession } from "@/lib/auth";
 import { getClubGender } from "@/lib/club";
+import { isCurrentUserPlatformAdmin } from "@/lib/platform";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireOrgSession();
   // A brand-new club picks girls or boys once before anything else.
   if ((await getClubGender(session.orgId)) === null) redirect("/club-setup");
   const isAdmin = session.has({ role: "org:admin" });
+  const isPlatformAdmin = await isCurrentUserPlatformAdmin();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -31,6 +33,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               className="text-sm font-medium text-slate-600 hover:text-brand-blue"
             >
               Admin
+            </Link>
+          )}
+          {isPlatformAdmin && (
+            <Link href="/platform" className="text-sm font-medium text-slate-600 hover:text-brand-blue">
+              Platform
             </Link>
           )}
           <UserButton />

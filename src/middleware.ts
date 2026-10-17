@@ -11,6 +11,8 @@ import { NextResponse } from "next/server";
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)"]);
 const isRootRoute = createRouteMatcher(["/"]);
 const isSelectOrgRoute = createRouteMatcher(["/select-org(.*)"]);
+// The platform admin page sits above all clubs, so it works without an active organization.
+const isPlatformRoute = createRouteMatcher(["/platform(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return;
@@ -24,7 +26,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Signed in, but hasn't picked (or created) a club yet - Clerk Organizations map 1:1 to
   // clubs, so every authenticated screen past this point assumes an active org is set.
-  if (!orgId && !isSelectOrgRoute(req)) {
+  if (!orgId && !isSelectOrgRoute(req) && !isPlatformRoute(req)) {
     return NextResponse.redirect(new URL("/select-org", req.url));
   }
 });
