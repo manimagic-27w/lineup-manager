@@ -1,5 +1,6 @@
 import { requireTeamAccess } from "@/lib/auth";
 import { TeamNav } from "@/components/team-nav";
+import { OfflineSync } from "@/components/offline-sync";
 import { themeSwatch } from "@/lib/utils";
 
 export default async function TeamLayout({
@@ -19,6 +20,7 @@ export default async function TeamLayout({
         style={{ borderTopColor: themeSwatch(team.theme), borderTopWidth: 4 }}
       >
         <h1 className="text-xl font-semibold text-slate-900">{team.name}</h1>
+        <OfflineSync teamId={teamId} />
         <TeamNav teamId={teamId} />
       </div>
       <div className="flex flex-1 flex-col">{children}</div>

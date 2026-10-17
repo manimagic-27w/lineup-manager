@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { OfflineManager } from "@/components/offline-manager";
 
 // Deliberately not using next/font/google here: it fetches from fonts.googleapis.com at build
 // time, which fails in network-restricted build environments (locked-down CI, offline dev).
@@ -31,7 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             href="https://fonts.googleapis.com/css2?family=Anton&display=swap"
           />
         </head>
-        <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">{children}</body>
+        <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+          <OfflineManager />
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

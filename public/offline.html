@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Lineup Manager - Offline</title>
+<style>
+  :root { --blue:#1ca8db; --orange:#e57200; --ink:#232d4b; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:#0f172a; font:16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand { font-weight:800; letter-spacing:.02em; color:var(--ink); text-transform:uppercase; font-size:18px; }
+  .brand span { color:var(--blue); }
+  .banner { background:#fff7ed; color:#9a3412; border-bottom:1px solid #fed7aa; padding:10px 16px; font-size:14px; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#334155; border-bottom:1px solid #cbd5e1; padding-bottom:4px; margin:22px 0 8px; }
+  .muted { color:var(--muted); font-size:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; }
+  .team { border-top:4px solid var(--blue); margin-bottom:18px; padding:12px 14px; }
+  .team h1 { margin-bottom:8px; }
+  a.game { display:block; padding:12px 4px; border-top:1px solid var(--line); color:inherit; text-decoration:none; }
+  a.game:first-of-type { border-top:0; }
+  a.game strong { display:block; }
+  .btn { display:inline-block; border:1px solid #cbd5e1; background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; font:inherit; font-size:14px; text-decoration:none; cursor:pointer; }
+  .btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:600; }
+  .grid { display:grid; grid-template-columns:1fr; gap:0 24px; }
+  @media (min-width:560px) { .grid { grid-template-columns:1fr 1fr; } }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  td { padding:6px 0; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+  td.l { width:42%; color:var(--muted); padding-right:8px; }
+  .warn { color:#dc2626; font-weight:600; }
+  ul.names { margin:0; padding-left:18px; }
+  .empty { padding:40px 8px; text-align:center; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .tag { display:inline-block; background:#f1f5f9; color:#475569; font-size:12px; border-radius:999px; padding:1px 8px; margin-left:6px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Lineup <span>Manager</span></div>
+  <a class="btn" href="/?live=1">Try the live app</a>
+</header>
+<div class="banner" id="banner">You&rsquo;re viewing a saved copy of your game-day info.</div>
+<main id="app"><p class="muted">Loading&hellip;</p></main>
+
+<script>
+(function () {
+  // Reads the copy the app saved on this phone (see src/lib/offline-snapshot.ts - same shape).
+  var KEY = "lm-offline-v1";
+  var app = document.getElementById("app");
+  var banner = document.getElementById("banner");
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || "null");
+      return s && s.version === 1 && s.teams ? s : null;
+    } catch (e) { return null; }
+  }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function when(iso) {
+    try { return new Date(iso).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+    catch (e) { return iso; }
+  }
+  function day(ymd) {
+    var p = String(ymd).split("-");
+    if (p.length !== 3) return ymd;
+    var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+    return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  }
+  function todayYmd() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function clear() { app.textContent = ""; }
+
+  function renderEmpty() {
+    banner.textContent = "No saved copy on this phone yet.";
+    clear();
+    var box = el("div", "empty");
+    box.appendChild(el("h1", null, "Nothing saved yet"));
+    box.appendChild(el("p", "muted", "Open your team in Lineup Manager once while you have signal. It saves your upcoming games, lineups and availability to this phone automatically."));
+    var a = el("a", "btn primary", "Try the live app");
+    a.href = "/?live=1";
+    box.appendChild(a);
+    app.appendChild(box);
+  }
+
+  function renderList(store) {
+    clear();
+    var ids = Object.keys(store.teams);
+    var newest = 0;
+    ids.forEach(function (id) { newest = Math.max(newest, Date.parse(store.teams[id].savedAt) || 0); });
+    banner.textContent = "Offline - showing the copy saved " + when(new Date(newest).toISOString()) + ". Changes made now won’t be recorded.";
+    var today = todayYmd();
+    ids.forEach(function (id) {
+      var t = store.teams[id];
+      var card = el("section", "card team");
+      card.style.borderTopColor = t.color || "#1ca8db";
+      card.appendChild(el("h1", null, t.teamName));
+      card.appendChild(el("p", "muted", "Saved " + when(t.savedAt)));
+      if (!t.games.length) card.appendChild(el("p", "muted", "No upcoming games were saved."));
+      t.games.forEach(function (g) {
+        var a = el("a", "game");
+        a.href = "#/g/" + encodeURIComponent(id) + "/" + encodeURIComponent(g.id);
+        var strong = el("strong", null, day(g.date) + (g.opponent ? " vs " + g.opponent : ""));
+        if (g.date === today) strong.appendChild(el("span", "tag", "Today"));
+        a.appendChild(strong);
+        var sub = g.formatLabel + (g.tournament ? " · " + g.tournament : "");
+        a.appendChild(el("span", "muted", sub));
+        card.appendChild(a);
+      });
+      app.appendChild(card);
+    });
+  }
+
+  function renderGame(store, teamId, gameId) {
+    clear();
+    var t = store.teams[teamId];
+    var g = t && t.games.filter(function (x) { return x.id === gameId; })[0];
+    var back = el("a", "btn", "← All games");
+    back.href = "#/";
+    if (!g) {
+      app.appendChild(back);
+      app.appendChild(el("p", "muted", "That game isn’t in the saved copy."));
+      return;
+    }
+    banner.textContent = "Offline - saved copy from " + when(t.savedAt) + ". Changes made after that aren’t shown.";
+    app.appendChild(back);
+    var head = el("div");
+    head.style.margin = "14px 0 0";
+    head.appendChild(el("h1", null, t.teamName));
+    head.appendChild(el("p", "muted", day(g.date) + (g.opponent ? " vs " + g.opponent : "") + " · " + g.formatLabel + (g.tournament ? " · " + g.tournament : "")));
+    app.appendChild(head);
+
+    app.appendChild(el("h2", null, "Lineup"));
+    var grid = el("div", "grid");
+    g.units.forEach(function (u) {
+      var box = el("div");
+      box.appendChild(el("p", "muted", u.unit)).style.margin = "8px 0 2px";
+      var table = el("table");
+      var body = el("tbody");
+      u.slots.forEach(function (s) {
+        var tr = el("tr");
+        tr.appendChild(el("td", "l", s.label));
+        tr.appendChild(el("td", s.warn ? "warn" : null, s.player || "—"));
+        body.appendChild(tr);
+      });
+      table.appendChild(body);
+      box.appendChild(table);
+      grid.appendChild(box);
+    });
+    app.appendChild(grid);
+
+    app.appendChild(el("h2", null, "Bench"));
+    if (!g.bench.length) app.appendChild(el("p", "muted", "No bench players."));
+    else {
+      var bl = el("ul", "names");
+      g.bench.forEach(function (n) { bl.appendChild(el("li", null, n)); });
+      app.appendChild(bl);
+    }
+    if (g.units.some(function (u) { return u.slots.some(function (s) { return s.warn; }); })) {
+      app.appendChild(el("p", "muted", "Names in red are in the lineup but not marked Available or Maybe.")).style.marginTop = "8px";
+    }
+
+    app.appendChild(el("h2", null, "Availability"));
+    g.availability.forEach(function (a) {
+      if (!a.players.length) return;
+      var p = el("p", null);
+      p.style.margin = "10px 0 2px";
+      p.appendChild(el("strong", null, a.status));
+      p.appendChild(el("span", "tag", String(a.players.length)));
+      app.appendChild(p);
+      app.appendChild(el("p", "muted", a.players.join(", "))).style.margin = "0";
+    });
+
+    if (g.notes) {
+      app.appendChild(el("h2", null, "Notes"));
+      var n = el("p", null, g.notes);
+      n.style.whiteSpace = "pre-line";
+      app.appendChild(n);
+    }
+  }
+
+  function route() {
+    var store = load();
+    if (!store || !Object.keys(store.teams).length) return renderEmpty();
+    var m = /^#\/g\/([^/]+)\/([^/]+)$/.exec(location.hash);
+    if (m) return renderGame(store, decodeURIComponent(m[1]), decodeURIComponent(m[2]));
+    renderList(store);
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", function () { route(); window.scrollTo(0, 0); });
+  route();
+})();
+</script>
+</body>
+</html>
