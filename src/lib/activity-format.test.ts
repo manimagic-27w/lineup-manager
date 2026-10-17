@@ -104,6 +104,7 @@ describe("describeActivity", () => {
   it("describes a team gender change and boys lineup slots", () => {
     expect(describeActivity("team_gender_changed", "boys", refs())).toBe("changed the team to Boys");
     expect(describeActivity("team_gender_changed", "girls", refs())).toBe("changed the team to Girls");
+    expect(describeActivity("club_gender_changed", "boys", refs())).toBe("changed the club to Boys");
     const put = describeActivity("lineup_set", JSON.stringify({ gameId: G1, slotKey: "BA3", playerId: P1 }), refs());
     expect(put).toContain("put Jordan Reyes at Attack 3");
   });

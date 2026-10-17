@@ -237,6 +237,10 @@ export function describeActivity(action: string, details: string | null, refs: A
       const label = TEAM_TYPES.find((t) => t.key === d)?.label;
       return label ? `changed the team type to ${label}` : "changed the team type";
     }
+    case "club_gender_changed": {
+      const label = TEAM_GENDERS.find((t) => t.key === d)?.label;
+      return label ? `changed the club to ${label}` : "changed the club's gender setting";
+    }
     case "team_gender_changed": {
       const label = TEAM_GENDERS.find((t) => t.key === d)?.label;
       return label ? `changed the team to ${label}` : "changed the team's gender setting";

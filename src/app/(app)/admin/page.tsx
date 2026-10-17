@@ -12,13 +12,16 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES, themeSwatch } from "@/lib/utils";
 import { TEAM_TYPES, TEAM_GENDERS } from "@/lib/db/schema";
+import { setClubGender } from "@/actions/club";
+import { getClubGender } from "@/lib/club";
 
 export default async function AdminPage() {
   const session = await requireOrgAdmin();
-  const [teams, members, invitations] = await Promise.all([
+  const [teams, members, invitations, clubGender] = await Promise.all([
     listAccessibleTeams(),
     listOrgMembers(),
     listPendingInvitations(),
+    getClubGender(session.orgId),
   ]);
 
   return (
@@ -30,6 +33,31 @@ export default async function AdminPage() {
           assignment happens below and on each team&rsquo;s settings page.
         </p>
       </div>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">Club</h2>
+        <p className="mb-3 text-sm text-slate-600">
+          A girls club starts 12 players on the field; a boys club starts 10 (3 attack, 3 midfield,
+          3 defense and 1 goalie). It applies to every team in the club&rsquo;s regular (Field)
+          games &ndash; Sixes and Sevens are the same for both. If you change it after lineups are
+          built, those Field-game lineups won&rsquo;t carry over (they&rsquo;re kept, and reappear
+          if you switch back).
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {TEAM_GENDERS.map((t) => (
+            <form key={t.key} action={setClubGender}>
+              <input type="hidden" name="gender" value={t.key} />
+              <button
+                type="submit"
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:border-slate-400"
+                style={{ backgroundColor: clubGender === t.key ? "#f1f5f9" : undefined }}
+              >
+                {t.label} club
+              </button>
+            </form>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Teams</h2>
@@ -48,9 +76,6 @@ export default async function AdminPage() {
                 <span className="font-medium text-slate-900">{team.name}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                   {TEAM_TYPES.find((t) => t.key === team.teamType)?.label ?? "Travel"}
-                </span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                  {TEAM_GENDERS.find((t) => t.key === team.gender)?.label ?? "Girls"}
                 </span>
               </div>
               <Link href={`/teams/${team.id}/settings`} className="text-sm text-slate-600 hover:text-brand-blue">
@@ -91,23 +116,6 @@ export default async function AdminPage() {
             </label>
             <select id="teamType" name="teamType" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
               {TEAM_TYPES.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="gender" className="text-xs font-medium text-slate-600">
-              Girls or boys
-            </label>
-            <select
-              id="gender"
-              name="gender"
-              defaultValue="girls"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-            >
-              {TEAM_GENDERS.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
                 </option>

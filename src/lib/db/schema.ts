@@ -76,9 +76,10 @@ export const TEAM_TYPES = [
 ] as const;
 export type TeamType = (typeof TEAM_TYPES)[number]["key"];
 
-// Girls and boys lacrosse field different numbers of starters, so the team's gender decides which
+// Girls and boys lacrosse field different numbers of starters, so the club's gender decides which
 // slots a "field" game's lineup board offers (see GIRLS vs BOYS_SLOTS below and
-// src/lib/lineup-slots.ts). Every team that existed before this setting is a girls team.
+// src/lib/lineup-slots.ts). A club (organization) is always all girls or all boys; the setting
+// lives in club_settings below.
 export const TEAM_GENDERS = [
   { key: "girls", label: "Girls" },
   { key: "boys", label: "Boys" },
@@ -180,11 +181,24 @@ export const teams = pgTable("teams", {
   theme: text("theme").notNull().default("green"),
   // "travel" or "rec" (see TEAM_TYPES) - drives which Experience levels the roster page offers.
   teamType: text("team_type").notNull().default("travel"),
-  // "girls" or "boys" (see TEAM_GENDERS) - decides a field game's lineup slots. The default
-  // means every team that existed before this column was added is a girls team.
+  // LEGACY: gender used to be set per team. It now lives on the club (club_settings.gender) and
+  // this column is no longer read for lineups. It is only consulted once, to seed a club's
+  // setting the first time an existing club (one that already has teams) is opened. Safe to
+  // drop in a later cleanup migration.
   gender: text("gender").notNull().default("girls"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
+});
+
+/** One row per club (Clerk organization) holding club-wide settings. A club has no row until it
+ *  is set up: existing clubs are seeded from their teams the first time they are opened, and a
+ *  brand-new club is asked to pick Girls or Boys before anything else (see /club-setup). */
+export const clubSettings = pgTable("club_settings", {
+  orgId: text("org_id").primaryKey(), // Clerk organization id - the "club"
+  // "girls" or "boys" (see TEAM_GENDERS) - decides a field game's lineup slots for every team.
+  gender: text("gender").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const teamCoaches = pgTable(

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "./db";
 import { teamCoaches, teams } from "./db/schema";
+import { getClubGender } from "./club";
 
 /**
  * Authorization model (replaces the old Hub Sheet's Admins/Coaches tabs entirely):
@@ -70,7 +71,11 @@ export async function checkTeamAccess(teamId: string) {
     if (!coach) return null;
   }
 
-  return { team, userId, orgId, isAdmin };
+  // The club decides girls vs boys; hand it back on the team so callers can keep using
+  // team.gender. A club that somehow has no setting falls back to girls rather than failing.
+  const gender = (await getClubGender(orgId)) ?? "girls";
+
+  return { team: { ...team, gender }, userId, orgId, isAdmin };
 }
 
 /**
