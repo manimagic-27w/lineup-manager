@@ -9,6 +9,7 @@ import { orderImportSources } from "@/lib/tournament-groups";
 import { ImportAvailability } from "@/components/import-availability";
 import { AddGuest } from "@/components/add-guest";
 import { guestsAvailableForGame } from "@/lib/guests";
+import { fieldFormatLabel } from "@/lib/lineup-slots";
 import { EXPERIENCE_LEVELS_BY_TEAM_TYPE, TeamType } from "@/lib/db/schema";
 import { gameOutcome } from "@/lib/game-record";
 import { AvailabilityList } from "@/components/availability-list";
@@ -220,7 +221,7 @@ export default async function GameDayPage({
               defaultValue={game.format}
               className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             >
-              <option value="field">Field (12 starters)</option>
+              <option value="field">{fieldFormatLabel(team.gender)}</option>
               <option value="sevens">Sevens (8 a side)</option>
               <option value="sixes">Sixes (6 a side)</option>
             </select>

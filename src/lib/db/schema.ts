@@ -76,6 +76,15 @@ export const TEAM_TYPES = [
 ] as const;
 export type TeamType = (typeof TEAM_TYPES)[number]["key"];
 
+// Girls and boys lacrosse field different numbers of starters, so the team's gender decides which
+// slots a "field" game's lineup board offers (see GIRLS vs BOYS_SLOTS below and
+// src/lib/lineup-slots.ts). Every team that existed before this setting is a girls team.
+export const TEAM_GENDERS = [
+  { key: "girls", label: "Girls" },
+  { key: "boys", label: "Boys" },
+] as const;
+export type TeamGender = (typeof TEAM_GENDERS)[number]["key"];
+
 // A rec team's roster is usually a mix of backgrounds - some kids have played travel ball,
 // some have only played rec, some are brand new - so its Experience field tracks where a
 // player is coming from. A travel team already knows everyone's background; its Experience
@@ -100,6 +109,23 @@ export const SLOTS = [
   { key: "LD1", label: "Low Defense 1", unit: "Defense", pos: "Def" },
   { key: "LD2", label: "Low Defense 2", unit: "Defense", pos: "Def" },
   { key: "G1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
+] as const;
+
+// A boys field game: 10 players - 3 attack, 3 midfield, 3 defense and 1 goalie. Same
+// {key,label,unit,pos} shape and the same unit/pos values as SLOTS, so the board, printable
+// sheet, start history and exports group it correctly with no boys-specific branching. Keys are
+// their own ("B..." prefix) so a boys lineup never collides with a girls lineup's slot keys.
+export const BOYS_SLOTS = [
+  { key: "BA1", label: "Attack 1", unit: "Attack", pos: "Attack" },
+  { key: "BA2", label: "Attack 2", unit: "Attack", pos: "Attack" },
+  { key: "BA3", label: "Attack 3", unit: "Attack", pos: "Attack" },
+  { key: "BM1", label: "Middie 1", unit: "Midfield", pos: "Mid" },
+  { key: "BM2", label: "Middie 2", unit: "Midfield", pos: "Mid" },
+  { key: "BM3", label: "Middie 3", unit: "Midfield", pos: "Mid" },
+  { key: "BD1", label: "Defense 1", unit: "Defense", pos: "Def" },
+  { key: "BD2", label: "Defense 2", unit: "Defense", pos: "Def" },
+  { key: "BD3", label: "Defense 3", unit: "Defense", pos: "Def" },
+  { key: "BG1", label: "Goalie", unit: "Goalie", pos: "Goalie" },
 ] as const;
 
 // World Lacrosse's "Sixes" format (the Olympic/PLL-Sixes style game): 6 a side, 5 field
@@ -154,6 +180,9 @@ export const teams = pgTable("teams", {
   theme: text("theme").notNull().default("green"),
   // "travel" or "rec" (see TEAM_TYPES) - drives which Experience levels the roster page offers.
   teamType: text("team_type").notNull().default("travel"),
+  // "girls" or "boys" (see TEAM_GENDERS) - decides a field game's lineup slots. The default
+  // means every team that existed before this column was added is a girls team.
+  gender: text("gender").notNull().default("girls"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });

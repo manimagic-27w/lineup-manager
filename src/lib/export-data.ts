@@ -1,7 +1,8 @@
 import "server-only";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "./db";
-import { players, games, gamePlayers, lineupSlots, statCategories, statValues, seasons, tournaments, SLOTS, SIXES_SLOTS, SEVENS_SLOTS } from "./db/schema";
+import { players, games, gamePlayers, lineupSlots, statCategories, statValues, seasons, tournaments } from "./db/schema";
+import { ALL_LINEUP_SLOTS } from "./lineup-slots";
 
 export { toCsv } from "./csv";
 
@@ -27,10 +28,10 @@ export async function loadTeamExport(teamId: string) {
 
   const playerById = new Map(roster.map((p) => [p.id, p]));
   const gameById = new Map(teamGames.map((g) => [g.id, g]));
-  // Covers a field game's 12 slots, a sixes game's 6, and a sevens game's 8, so an exported
+  // Covers a girls field game's 12 slots, a boys field game's 10, a sixes game's 6, and a sevens game's 8, so an exported
   // lineup row never falls back to showing a raw slot key like "SF1" or "7A1".
   const slotLabel = new Map<string, string>(
-    [...SLOTS, ...SIXES_SLOTS, ...SEVENS_SLOTS].map((s) => [s.key, s.label])
+    ALL_LINEUP_SLOTS.map((s) => [s.key, s.label])
   );
 
   return {

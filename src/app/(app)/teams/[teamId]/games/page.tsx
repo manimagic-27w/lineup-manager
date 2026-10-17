@@ -2,13 +2,14 @@ import { listGames, createGame } from "@/actions/games";
 import { listSeasons, createSeason, deleteSeason } from "@/actions/seasons";
 import { listTournaments, createTournament, deleteTournament } from "@/actions/tournaments";
 import { requireTeamAccess } from "@/lib/auth";
+import { fieldFormatLabel } from "@/lib/lineup-slots";
 import { GamesList } from "@/components/games-list";
 import { SubmitButton } from "@/components/submit-button";
 import { TeamRealtime } from "@/components/team-realtime";
 
 export default async function GamesPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
-  await requireTeamAccess(teamId);
+  const { team } = await requireTeamAccess(teamId);
   const [games, seasons, tournaments] = await Promise.all([
     listGames(teamId),
     listSeasons(teamId),
@@ -67,7 +68,7 @@ export default async function GamesPage({ params }: { params: Promise<{ teamId: 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-600">Format</label>
             <select name="format" defaultValue="field" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
-              <option value="field">Field (12 starters)</option>
+              <option value="field">{fieldFormatLabel(team.gender)}</option>
               <option value="sevens">Sevens (8 a side)</option>
               <option value="sixes">Sixes (6 a side)</option>
             </select>

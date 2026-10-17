@@ -12,33 +12,16 @@ import {
   lineupSlots,
   players,
   AVAILABILITY_STATUSES,
-  SLOTS,
-  SIXES_SLOTS,
-  SEVENS_SLOTS,
   GAME_FORMATS,
-  type GameFormat,
 } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 import { coreThenGuests } from "@/lib/guests";
+import { slotKeysFor, slotsFor } from "@/lib/lineup-slots";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
-const SLOTS_BY_FORMAT: Record<GameFormat, typeof SLOTS | typeof SIXES_SLOTS | typeof SEVENS_SLOTS> = {
-  field: SLOTS,
-  sixes: SIXES_SLOTS,
-  sevens: SEVENS_SLOTS,
-};
-const SLOT_KEYS_BY_FORMAT: Record<GameFormat, Set<string>> = {
-  field: new Set(SLOTS.map((s) => s.key)),
-  sixes: new Set(SIXES_SLOTS.map((s) => s.key)),
-  sevens: new Set(SEVENS_SLOTS.map((s) => s.key)),
-};
-
-function slotsForFormat(format: string) {
-  return SLOTS_BY_FORMAT[format as GameFormat] ?? SLOTS;
-}
 
 export async function listGames(teamId: string) {
   await requireTeamAccess(teamId);
@@ -257,7 +240,7 @@ export async function deleteGame(formData: FormData) {
  *  set (SLOTS or SIXES_SLOTS) the lineup board renders - pass the game's own `format` column
  *  (callers already have the game row loaded before calling this). */
 export async function getGameDay(teamId: string, gameId: string, format: string = "field") {
-  await requireTeamAccess(teamId);
+  const { team } = await requireTeamAccess(teamId);
 
   const roster = await db.select().from(players).where(eq(players.teamId, teamId)).orderBy(asc(players.name));
   const availability = await db.select().from(gamePlayers).where(eq(gamePlayers.gameId, gameId));
@@ -275,7 +258,7 @@ export async function getGameDay(teamId: string, gameId: string, format: string 
       ...p,
       status: availabilityByPlayer.get(p.id) ?? "No Response",
     })),
-    slots: slotsForFormat(format).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
+    slots: slotsFor(format, team.gender).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
   };
 }
 
@@ -406,7 +389,7 @@ export async function setLineupSlot(formData: FormData) {
     slotKey: formData.get("slotKey"),
     playerId: formData.get("playerId") || undefined,
   });
-  const { userId } = await requireTeamAccess(parsed.teamId);
+  const { userId, team } = await requireTeamAccess(parsed.teamId);
 
   const [game] = await db
     .select({ format: games.format })
@@ -414,7 +397,7 @@ export async function setLineupSlot(formData: FormData) {
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
     .limit(1);
   if (!game) throw new Error("Game not found.");
-  const validKeys = SLOT_KEYS_BY_FORMAT[game.format as GameFormat] ?? SLOT_KEYS_BY_FORMAT.field;
+  const validKeys = slotKeysFor(game.format, team.gender);
   if (!validKeys.has(parsed.slotKey)) throw new Error("Unrecognized lineup slot for this game's format.");
 
   await db.transaction(async (tx) => {

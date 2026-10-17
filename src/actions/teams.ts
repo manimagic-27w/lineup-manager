@@ -4,7 +4,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES, TEAM_TYPES } from "@/lib/db/schema";
+import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES, TEAM_TYPES, TEAM_GENDERS } from "@/lib/db/schema";
 import { requireOrgAdmin, requireOrgSession, requireTeamAccess } from "@/lib/auth";
 import { reconcileMyPendingAssignments } from "@/actions/coaches";
 import { logActivity } from "@/lib/activity";
@@ -12,6 +12,7 @@ import { THEMES } from "@/lib/utils";
 
 const THEME_KEYS = THEMES.map((t) => t.key) as [string, ...string[]];
 const TEAM_TYPE_KEYS = TEAM_TYPES.map((t) => t.key) as [string, ...string[]];
+const TEAM_GENDER_KEYS = TEAM_GENDERS.map((t) => t.key) as [string, ...string[]];
 
 /** Every team the caller may see in their active club: all of them for an org:admin, only the
  *  ones they coach for anyone else. This is the multi-team "hub" view from the old Sheets app. */
@@ -41,6 +42,7 @@ const createTeamSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   theme: z.enum(THEME_KEYS).default("green"),
   teamType: z.enum(TEAM_TYPE_KEYS).default("travel"),
+  gender: z.enum(TEAM_GENDER_KEYS).default("girls"),
 });
 
 export async function createTeam(formData: FormData) {
@@ -49,6 +51,7 @@ export async function createTeam(formData: FormData) {
     name: formData.get("name"),
     theme: formData.get("theme") || "green",
     teamType: formData.get("teamType") || "travel",
+    gender: formData.get("gender") || "girls",
   });
 
   const [team] = await db
@@ -58,6 +61,7 @@ export async function createTeam(formData: FormData) {
       name: parsed.name,
       theme: parsed.theme,
       teamType: parsed.teamType,
+      gender: parsed.gender,
       createdBy: session.userId,
     })
     .returning();
@@ -144,6 +148,33 @@ export async function setTeamType(formData: FormData) {
   });
 
   revalidatePath(`/teams/${parsed.teamId}`);
+}
+
+const setTeamGenderSchema = z.object({ teamId: z.string().uuid(), gender: z.enum(TEAM_GENDER_KEYS) });
+
+// A team's gender decides the slots on a regular (field) game's lineup board: girls 12 starters,
+// boys 10 (3 attack, 3 midfield, 3 defense, 1 goalie). Switching never deletes anything - lineup
+// picks are stored under slot keys that belong to one set or the other, so existing field-game
+// lineups simply stop showing (and come back if the setting is switched back). Sixes and sevens
+// lineups are the same for both and are unaffected.
+export async function setTeamGender(formData: FormData) {
+  const parsed = setTeamGenderSchema.parse({
+    teamId: formData.get("teamId"),
+    gender: formData.get("gender"),
+  });
+  const { userId, team } = await requireTeamAccess(parsed.teamId);
+  if (team.gender === parsed.gender) return;
+
+  await db.update(teams).set({ gender: parsed.gender }).where(eq(teams.id, parsed.teamId));
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "team_gender_changed",
+    details: parsed.gender,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath(`/teams/${parsed.teamId}`, "layout");
 }
 
 /** One-time action behind the "Enable stats tracking" button: seeds the five default stat

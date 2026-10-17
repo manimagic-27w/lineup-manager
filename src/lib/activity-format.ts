@@ -1,4 +1,5 @@
-import { SEVENS_SLOTS, SIXES_SLOTS, SLOTS, TEAM_TYPES } from "@/lib/db/schema";
+import { TEAM_GENDERS, TEAM_TYPES } from "@/lib/db/schema";
+import { ALL_LINEUP_SLOTS } from "@/lib/lineup-slots";
 import { THEMES, formatDate } from "@/lib/utils";
 
 /**
@@ -31,7 +32,7 @@ export type ActivityRefIds = {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SLOT_LABELS = new Map<string, string>(
-  [...SLOTS, ...SIXES_SLOTS, ...SEVENS_SLOTS].map((s) => [s.key, s.label])
+  ALL_LINEUP_SLOTS.map((s) => [s.key, s.label])
 );
 
 type Entry = { action: string; details: string | null };
@@ -235,6 +236,10 @@ export function describeActivity(action: string, details: string | null, refs: A
     case "team_type_changed": {
       const label = TEAM_TYPES.find((t) => t.key === d)?.label;
       return label ? `changed the team type to ${label}` : "changed the team type";
+    }
+    case "team_gender_changed": {
+      const label = TEAM_GENDERS.find((t) => t.key === d)?.label;
+      return label ? `changed the team to ${label}` : "changed the team's gender setting";
     }
     case "stats_enabled":
       return "turned on stats tracking";

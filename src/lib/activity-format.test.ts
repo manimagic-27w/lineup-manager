@@ -101,6 +101,13 @@ describe("describeActivity", () => {
     expect(describeActivity("player_restored", "Sam Smith", refs())).toBe("restored Sam Smith");
   });
 
+  it("describes a team gender change and boys lineup slots", () => {
+    expect(describeActivity("team_gender_changed", "boys", refs())).toBe("changed the team to Boys");
+    expect(describeActivity("team_gender_changed", "girls", refs())).toBe("changed the team to Girls");
+    const put = describeActivity("lineup_set", JSON.stringify({ gameId: G1, slotKey: "BA3", playerId: P1 }), refs());
+    expect(put).toContain("put Jordan Reyes at Attack 3");
+  });
+
   it("maps theme and team type keys to labels", () => {
     expect(describeActivity("team_theme_changed", "navy", refs())).toBe("changed the team color to Navy");
     expect(describeActivity("team_type_changed", "rec", refs())).toBe("changed the team type to Rec");

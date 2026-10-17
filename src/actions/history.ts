@@ -2,7 +2,8 @@
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { games, lineupSlots, SLOTS, SIXES_SLOTS, SEVENS_SLOTS, type SlotPosition } from "@/lib/db/schema";
+import { games, lineupSlots, type SlotPosition } from "@/lib/db/schema";
+import { ALL_LINEUP_SLOTS } from "@/lib/lineup-slots";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
 import { coreThenGuests } from "@/lib/guests";
@@ -12,7 +13,7 @@ import { coreThenGuests } from "@/lib/guests";
 // bucket alongside the four regular positions (its Goalie slot still rolls into the ordinary
 // Goalie bucket, though). Sevens slots use the same Attack/Mid/Def/Goalie positions as field,
 // so they need no bucket of their own.
-const ALL_SLOTS = [...SLOTS, ...SIXES_SLOTS, ...SEVENS_SLOTS];
+const ALL_SLOTS = ALL_LINEUP_SLOTS;
 const SLOT_POSITION = Object.fromEntries(ALL_SLOTS.map((s) => [s.key, s.pos])) as Record<
   string,
   SlotPosition

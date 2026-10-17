@@ -11,7 +11,7 @@ import {
 } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES, themeSwatch } from "@/lib/utils";
-import { TEAM_TYPES } from "@/lib/db/schema";
+import { TEAM_TYPES, TEAM_GENDERS } from "@/lib/db/schema";
 
 export default async function AdminPage() {
   const session = await requireOrgAdmin();
@@ -48,6 +48,9 @@ export default async function AdminPage() {
                 <span className="font-medium text-slate-900">{team.name}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                   {TEAM_TYPES.find((t) => t.key === team.teamType)?.label ?? "Travel"}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                  {TEAM_GENDERS.find((t) => t.key === team.gender)?.label ?? "Girls"}
                 </span>
               </div>
               <Link href={`/teams/${team.id}/settings`} className="text-sm text-slate-600 hover:text-brand-blue">
@@ -88,6 +91,23 @@ export default async function AdminPage() {
             </label>
             <select id="teamType" name="teamType" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
               {TEAM_TYPES.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="gender" className="text-xs font-medium text-slate-600">
+              Girls or boys
+            </label>
+            <select
+              id="gender"
+              name="gender"
+              defaultValue="girls"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+            >
+              {TEAM_GENDERS.map((t) => (
                 <option key={t.key} value={t.key}>
                   {t.label}
                 </option>

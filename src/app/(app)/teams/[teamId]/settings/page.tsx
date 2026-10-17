@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireTeamAccess } from "@/lib/auth";
-import { renameTeam, setTeamTheme, setTeamType } from "@/actions/teams";
+import { renameTeam, setTeamTheme, setTeamType, setTeamGender } from "@/actions/teams";
 import { listTeamCoaches, assignCoachToTeam, removeCoachFromTeam, listOrgMembers } from "@/actions/coaches";
 import { SubmitButton } from "@/components/submit-button";
 import { THEMES } from "@/lib/utils";
-import { TEAM_TYPES } from "@/lib/db/schema";
+import { TEAM_TYPES, TEAM_GENDERS } from "@/lib/db/schema";
 
 export default async function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
@@ -70,6 +70,31 @@ export default async function TeamSettingsPage({ params }: { params: Promise<{ t
                 type="submit"
                 className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:border-slate-400"
                 style={{ backgroundColor: team.teamType === t.key ? "#f1f5f9" : undefined }}
+              >
+                {t.label}
+              </button>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Girls or boys team</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Sets the lineup for regular (Field) games: a girls team starts 12 players, a boys team
+          starts 10 &ndash; 3 attack, 3 midfield, 3 defense and 1 goalie. Sixes and Sevens games are
+          the same for both. If you change this after building lineups, those Field-game lineups
+          won&rsquo;t carry over to the new slots (they&rsquo;re kept, and reappear if you switch back).
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {TEAM_GENDERS.map((t) => (
+            <form key={t.key} action={setTeamGender}>
+              <input type="hidden" name="teamId" value={teamId} />
+              <input type="hidden" name="gender" value={t.key} />
+              <button
+                type="submit"
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium hover:border-slate-400"
+                style={{ backgroundColor: team.gender === t.key ? "#f1f5f9" : undefined }}
               >
                 {t.label}
               </button>

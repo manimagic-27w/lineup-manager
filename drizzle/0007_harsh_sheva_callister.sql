@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "gender" text DEFAULT 'girls' NOT NULL;
