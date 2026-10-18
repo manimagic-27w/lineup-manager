@@ -41,8 +41,8 @@ export default async function MarketingLayout({ children }: { children: React.Re
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-slate-500 sm:px-6">
           <span>Lineup Manager for lacrosse clubs</span>
           <span className="flex gap-4">
-            <Link href="/guides/quick-start-guide.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-brand-blue">
-              Quick start guide
+            <Link href="/guides/coach-quick-start.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-brand-blue">
+              Coaches quick start
             </Link>
             <a href={REQUEST_ACCESS_HREF} className="hover:text-brand-blue">
               Request an invite

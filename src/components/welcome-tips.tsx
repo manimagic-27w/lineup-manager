@@ -9,7 +9,7 @@ const TIPS = [
   "Importing a roster CSV? Use columns name,number,position,grade,experience - re-importing updates existing players by name instead of creating duplicates.",
 ];
 
-export function WelcomeTips() {
+export function WelcomeTips({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 sm:p-8">
       <h2 className="text-lg font-semibold text-slate-900">Welcome to Lineup Manager</h2>
@@ -26,22 +26,44 @@ export function WelcomeTips() {
 
       <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-100 pt-4">
         <Link
-          href="/guides/quick-start-guide.pdf"
+          href="/guides/coach-quick-start.pdf"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-md bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:bg-brand-orange-light"
         >
-          Quick start guide (PDF)
+          Coaches quick start (PDF)
         </Link>
         <Link
-          href="/guides/new-coach-guide.pdf"
+          href="/guides/coach-guide.pdf"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200"
         >
-          Full coach guide (PDF)
+          Coaches guide (PDF)
         </Link>
       </div>
+
+      {isAdmin && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+          <span className="text-sm font-medium text-slate-700">For club admins:</span>
+          <Link
+            href="/api/guides/admin-quick-start"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:bg-brand-orange-light"
+          >
+            Admin quick start (PDF)
+          </Link>
+          <Link
+            href="/api/guides/admin-guide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200"
+          >
+            Admin guide (PDF)
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

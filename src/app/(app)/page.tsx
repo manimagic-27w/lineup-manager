@@ -40,7 +40,7 @@ export default async function DashboardPage() {
               </Link>
             )}
           </div>
-          <WelcomeTips />
+          <WelcomeTips isAdmin={isAdmin} />
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">

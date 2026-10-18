@@ -33,6 +33,14 @@ export default async function AdminPage() {
           Manage teams and who coaches them. Club membership is handled through Clerk; team
           assignment happens below and on each team&rsquo;s settings page.
         </p>
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <a href="/api/guides/admin-quick-start" target="_blank" rel="noopener noreferrer" className="font-medium text-brand-blue hover:underline">
+            Admin quick start (PDF)
+          </a>
+          <a href="/api/guides/admin-guide" target="_blank" rel="noopener noreferrer" className="font-medium text-brand-blue hover:underline">
+            Admin guide (PDF)
+          </a>
+        </p>
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">

@@ -196,12 +196,12 @@ export function AudienceHome({ initialAudience }: { initialAudience: Audience })
             Start the demo
           </Link>
           <Link
-            href="/guides/quick-start-guide.pdf"
+            href="/guides/coach-quick-start.pdf"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
           >
-            Quick start guide (PDF)
+            Coaches quick start (PDF)
           </Link>
         </div>
       </section>
