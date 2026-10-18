@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { OfflineManager } from "@/components/offline-manager";
@@ -15,6 +15,14 @@ import { OfflineManager } from "@/components/offline-manager";
 export const metadata: Metadata = {
   title: "Lineup Manager",
   description: "Rosters, availability, lineups and stats for lacrosse clubs.",
+  applicationName: "Lineup Manager",
+  // iPhone "Add to Home Screen": its own icon and a title, and it opens without Safari's chrome.
+  icons: { apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Lineups", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#232d4b",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
