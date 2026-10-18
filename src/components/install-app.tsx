@@ -62,11 +62,21 @@ export function InstallApp() {
           Install app
         </button>
       ) : kind === "ios" ? (
-        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-700">
-          <li>Open this page in Safari.</li>
-          <li>Tap the Share button (the square with an arrow) at the bottom of the screen.</li>
-          <li>Scroll down and tap &ldquo;Add to Home Screen,&rdquo; then tap Add.</li>
-        </ol>
+        <>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            <li>Open this page in Safari.</li>
+            <li>Tap the Share button (the square with an arrow) at the bottom of the screen.</li>
+            <li>Scroll down and tap &ldquo;Add to Home Screen,&rdquo; then tap Add.</li>
+          </ol>
+          <a
+            href="/guides/ios-home-screen-guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block text-sm font-medium text-brand-blue hover:underline"
+          >
+            Step-by-step guide with pictures (PDF)
+          </a>
+        </>
       ) : (
         <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-slate-700">
           <li>Open the browser menu (the three dots).</li>
