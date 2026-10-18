@@ -11,7 +11,7 @@ const UNIT_ORDER_BY_FORMAT: Record<string, string[]> = {
 };
 
 /**
- * A clean, print-only view of one game's lineup + bench - a separate route (rather than print
+ * A clean, print-only view of one game's lineup + bench (positions down the left, a lined notes area on the right) - a separate route (rather than print
  * CSS layered over the interactive game page) so the dropdowns, availability list and app chrome
  * never have to be reasoned about as print output. The app header/nav hide themselves on print
  * (see the app and team layouts), so this page's own content is all that reaches paper.
@@ -54,71 +54,83 @@ export default async function LineupPrintPage({
         </p>
       </header>
 
-      <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 print:grid-cols-2 print:gap-4">
-        {unitOrder.map((unit) => (
-          <div key={unit}>
-            <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
-              {unit}
+      {/* Positions run down the left, top to bottom (Attack, Midfield, Defense, Goalie), then the
+          bench; the right half is one big lined notes area that runs the full height. */}
+      <div className="flex items-stretch gap-6 print:gap-5">
+        <div className="w-1/2 space-y-4">
+          {unitOrder.map((unit) => (
+            <section key={unit}>
+              <h2 className="mb-1 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
+                {unit}
+              </h2>
+              <table className="w-full text-sm">
+                <tbody>
+                  {slots
+                    .filter((s) => s.unit === unit)
+                    .map((slot, i, unitSlots) => {
+                      const player = slot.playerId
+                        ? playerById.get(slot.playerId)
+                        : undefined;
+                      // Subs follow the starters, set off by a heavier rule above the first one.
+                      const firstSub = !!slot.sub && !unitSlots[i - 1]?.sub;
+                      return (
+                        <tr
+                          key={slot.key}
+                          className={firstSub ? "border-t-2 border-t-slate-300 border-b border-b-slate-100" : "border-b border-slate-100"}
+                        >
+                          <td className="w-28 py-1 pr-2 align-top text-slate-500">
+                            {slot.label}
+                          </td>
+                          <td className="py-1 font-medium text-slate-900">
+                            {player
+                              ? `${player.name}${player.number ? ` #${player.number}` : ""}`
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </section>
+          ))}
+
+          <section>
+            <h2 className="mb-1 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
+              Bench
             </h2>
-            <table className="w-full text-sm">
-              <tbody>
-                {slots
-                  .filter((s) => s.unit === unit)
-                  .map((slot, i, unitSlots) => {
-                    const player = slot.playerId
-                      ? playerById.get(slot.playerId)
-                      : undefined;
-                    // Subs follow the starters, set off by a heavier rule above the first one.
-                    const firstSub = !!slot.sub && !unitSlots[i - 1]?.sub;
-                    return (
-                      <tr
-                        key={slot.key}
-                        className={firstSub ? "border-t-2 border-t-slate-300 border-b border-b-slate-100" : "border-b border-slate-100"}
-                      >
-                        <td className="w-28 py-1 pr-2 align-top text-slate-500">
-                          {slot.label}
-                        </td>
-                        <td className="py-1 font-medium text-slate-900">
-                          {player
-                            ? `${player.name}${player.number ? ` #${player.number}` : ""}`
-                            : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </section>
+            {bench.length === 0 ? (
+              <p className="text-sm text-slate-500">No bench players.</p>
+            ) : (
+              <ul className="space-y-0.5 text-sm">
+                {bench.map((p) => (
+                  <li key={p.id} className="text-slate-900">
+                    {p.name}
+                    {p.number ? ` #${p.number}` : ""}
+                    {p.position ? ` (${p.position[0]})` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
 
-      <section>
-        <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
-          Bench
-        </h2>
-        {bench.length === 0 ? (
-          <p className="text-sm text-slate-500">No bench players.</p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 print:grid-cols-3">
-            {bench.map((p) => (
-              <li key={p.id} className="text-slate-900">
-                {p.name}
-                {p.number ? ` #${p.number}` : ""}
-                {p.position ? ` (${p.position[0]})` : ""}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {game.notes && (
-        <section>
-          <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
+        <section className="flex min-h-[600px] w-1/2 flex-col rounded border border-slate-300 print:min-h-[8.5in]">
+          <h2 className="border-b border-slate-300 px-3 py-1 text-sm font-semibold uppercase tracking-wide text-slate-700">
             Notes
           </h2>
-          <p className="whitespace-pre-line text-sm text-slate-900">{game.notes}</p>
+          {/* Ruled lines: a repeating background, forced to print, so the whole area is lined
+              however tall it ends up. Any notes saved on the game are written on the first lines. */}
+          <div
+            className="flex-1 px-3 text-sm leading-[28px] text-slate-900 [-webkit-print-color-adjust:exact] [print-color-adjust:exact]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to bottom, transparent 0, transparent 27px, #94a3b8 27px, #94a3b8 28px)",
+            }}
+          >
+            {game.notes && <p className="whitespace-pre-line">{game.notes}</p>}
+          </div>
         </section>
-      )}
+      </div>
     </div>
   );
 }
