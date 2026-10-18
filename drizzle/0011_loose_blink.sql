@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS "one_slot_per_player";--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "one_starting_slot_per_player" ON "lineup_slots" USING btree ("game_id","player_id") WHERE "lineup_slots"."player_id" is not null and "lineup_slots"."slot_key" not like 'X%';--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "one_sub_slot_per_player" ON "lineup_slots" USING btree ("game_id","player_id") WHERE "lineup_slots"."player_id" is not null and "lineup_slots"."slot_key" like 'X%';

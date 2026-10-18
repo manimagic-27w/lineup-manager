@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LINEUP_SLOTS, fieldFormatLabel, formatAllowsSubs, slotKeysFor, slotsFor } from "./lineup-slots";
+import { ALL_LINEUP_SLOTS, fieldFormatLabel, formatAllowsSubs, isSubSlotKey, slotKeysFor, slotsFor } from "./lineup-slots";
 
 const count = (slots: readonly { unit: string }[], unit: string) => slots.filter((s) => s.unit === unit).length;
 
@@ -71,5 +71,15 @@ describe("lineup slots by format and gender", () => {
   it("labels the field format by gender", () => {
     expect(fieldFormatLabel("boys")).toBe("Field (10 starters)");
     expect(fieldFormatLabel("girls")).toBe("Field (12 starters)");
+  });
+});
+
+describe("isSubSlotKey", () => {
+  it("is true for every sub spot and false for every starting spot", () => {
+    for (const s of ALL_LINEUP_SLOTS) expect(isSubSlotKey(s.key)).toBe(!!s.sub);
+  });
+
+  it("matches the 'X' prefix the database's one_sub_slot_per_player index relies on", () => {
+    for (const s of ALL_LINEUP_SLOTS) expect(s.key.startsWith("X")).toBe(!!s.sub);
   });
 });

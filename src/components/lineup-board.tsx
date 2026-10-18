@@ -5,6 +5,7 @@ import { setLineupSlot } from "@/actions/games";
 import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
 import { leaningForPosition } from "@/lib/db/schema";
 import { getBenchPlayers } from "@/lib/lineup";
+import { isSubSlotKey } from "@/lib/lineup-slots";
 import { cn } from "@/lib/utils";
 import { saveWithRetry } from "@/lib/save-with-retry";
 import { SaveStatusIndicator, type SaveStatus } from "@/components/save-status-indicator";
@@ -107,7 +108,15 @@ export function LineupBoard({
   const unitOrder = UNIT_ORDER[format] ?? UNIT_ORDER.field;
 
   const playerById = new Map(roster.map((p) => [p.id, p]));
-  const assignedElsewhere = new Set(slots.map((s) => s.playerId).filter(Boolean) as string[]);
+  // A player can hold one starting slot AND one sub slot (start at attack, first midfield sub),
+  // so "already placed" is tracked separately for each kind: a starter stays on offer for every
+  // sub spot, and a sub stays on offer for every starting spot.
+  const assignedStarters = new Set(
+    slots.filter((s) => !isSubSlotKey(s.key)).map((s) => s.playerId).filter(Boolean) as string[],
+  );
+  const assignedSubs = new Set(
+    slots.filter((s) => isSubSlotKey(s.key)).map((s) => s.playerId).filter(Boolean) as string[],
+  );
   // Bench = every Available/Maybe player not currently sitting in a starting slot. This is
   // derived straight from `roster` + `slots`, the same props the dropdowns use, so a player
   // lands back here automatically the moment their slot is cleared or handed to someone else -
@@ -193,9 +202,11 @@ export function LineupBoard({
                   // assigned, so the coach can still see/reassign them. A sixes field slot also
                   // excludes goalie-position players, mirroring how a Goalie slot only ever
                   // offers goalies.
+                  const isSubSlot = isSubSlotKey(slot.key);
+                  const placedElsewhere = isSubSlot ? assignedSubs : assignedStarters;
                   const eligible = roster.filter((p) => {
                     if (p.id === slot.playerId) return true;
-                    if (assignedElsewhere.has(p.id)) return false;
+                    if (placedElsewhere.has(p.id)) return false;
                     if (isFieldFlexSlot && p.position === "Goalie") return false;
                     return p.status === "Available" || p.status === "Maybe";
                   });
@@ -250,6 +261,7 @@ export function LineupBoard({
                                 {onPosition.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {optionLabel(p)}
+                                    {isSubSlot && assignedStarters.has(p.id) ? " - starting" : ""}
                                   </option>
                                 ))}
                               </optgroup>
@@ -259,6 +271,7 @@ export function LineupBoard({
                                 {rest.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {optionLabel(p)}
+                                    {isSubSlot && assignedStarters.has(p.id) ? " - starting" : ""}
                                   </option>
                                 ))}
                               </optgroup>

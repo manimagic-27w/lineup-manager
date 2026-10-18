@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -13,12 +13,13 @@ import {
   players,
   AVAILABILITY_STATUSES,
   GAME_FORMATS,
+  SUB_SLOTS,
 } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 import { coreThenGuests } from "@/lib/guests";
-import { formatAllowsSubs, slotKeysFor, slotsFor } from "@/lib/lineup-slots";
+import { formatAllowsSubs, isSubSlotKey, slotKeysFor, slotsFor } from "@/lib/lineup-slots";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
@@ -417,10 +418,11 @@ const lineupSchema = z.object({
   playerId: z.string().uuid().optional(),
 });
 
-/** Assigns (or clears, when `playerId` is omitted) a lineup slot. A player can only hold one
- *  slot per game - the DB's `one_slot_per_player` partial unique index is the ultimate
- *  guarantee, but we also proactively clear any other slot they hold so assigning them
- *  somewhere new reads as a "move," not a rejected duplicate. */
+/** Assigns (or clears, when `playerId` is omitted) a lineup slot. A player can hold at most one
+ *  starting slot and one sub slot per game - the DB's `one_starting_slot_per_player` and
+ *  `one_sub_slot_per_player` partial unique indexes are the ultimate guarantee, but we also
+ *  proactively clear any other slot of the same kind they hold so assigning them somewhere new
+ *  reads as a "move," not a rejected duplicate. */
 export async function setLineupSlot(formData: FormData) {
   const parsed = lineupSchema.parse({
     teamId: formData.get("teamId"),
@@ -441,10 +443,21 @@ export async function setLineupSlot(formData: FormData) {
 
   await db.transaction(async (tx) => {
     if (parsed.playerId) {
+      // Moving a player only clears their other slot of the same kind: a starter can also be a
+      // sub (and vice versa), but never holds two starting spots or two sub spots.
+      const subKeys: string[] = SUB_SLOTS.map((s) => s.key);
       await tx
         .update(lineupSlots)
         .set({ playerId: null })
-        .where(and(eq(lineupSlots.gameId, parsed.gameId), eq(lineupSlots.playerId, parsed.playerId)));
+        .where(
+          and(
+            eq(lineupSlots.gameId, parsed.gameId),
+            eq(lineupSlots.playerId, parsed.playerId),
+            isSubSlotKey(parsed.slotKey)
+              ? inArray(lineupSlots.slotKey, subKeys)
+              : notInArray(lineupSlots.slotKey, subKeys),
+          ),
+        );
     }
     await tx
       .insert(lineupSlots)

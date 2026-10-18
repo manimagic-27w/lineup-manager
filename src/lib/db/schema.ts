@@ -359,10 +359,16 @@ export const lineupSlots = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.gameId, t.slotKey] }),
-    // Enforces "a player can only hold one slot per game" at the DB level.
-    uniqueIndex("one_slot_per_player")
+    // Enforces "a player holds at most one starting slot and at most one sub slot per game" at
+    // the DB level. Sub slot keys all start with "X" (see SUB_SLOTS) and no other slot key does,
+    // so a player can start at attack and also be the first midfield sub, but never twice in
+    // the same group.
+    uniqueIndex("one_starting_slot_per_player")
       .on(t.gameId, t.playerId)
-      .where(sql`${t.playerId} is not null`),
+      .where(sql`${t.playerId} is not null and ${t.slotKey} not like 'X%'`),
+    uniqueIndex("one_sub_slot_per_player")
+      .on(t.gameId, t.playerId)
+      .where(sql`${t.playerId} is not null and ${t.slotKey} like 'X%'`),
   ]
 );
 

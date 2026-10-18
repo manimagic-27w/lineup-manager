@@ -37,6 +37,14 @@ export function slotsFor(format: string, gender: string, subs = false): readonly
   return subs && formatAllowsSubs(format) ? [...base, ...SUB_SLOTS] : base;
 }
 
+const SUB_SLOT_KEY_SET: ReadonlySet<string> = new Set(SUB_SLOTS.map((s) => s.key));
+
+/** True for the optional sub spots (SUB_SLOTS). A player can hold one starting slot and one sub
+ *  slot in the same game - e.g. start at attack and be the first midfield sub. */
+export function isSubSlotKey(key: string): boolean {
+  return SUB_SLOT_KEY_SET.has(key);
+}
+
 export function slotKeysFor(format: string, gender: string, subs = false): Set<string> {
   return new Set(slotsFor(format, gender, subs).map((s) => s.key));
 }
