@@ -25,6 +25,24 @@ export function publicName(fullName: string): string {
   return `${parts[0]} ${lastInitial}.`;
 }
 
+/** A US mobile number as +1XXXXXXXXXX, or null when it isn't a plausible 10-digit number. */
+export function normalizePhone(value: string): string | null {
+  const digits = value.replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (ten.length !== 10 || ten[0] === "0" || ten[0] === "1") return null;
+  return `+1${ten}`;
+}
+
+/** "+15551234567" -> "(555) 123-4567" */
+export function formatPhone(e164: string): string {
+  const d = e164.replace(/\D/g, "").slice(-10);
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : e164;
+}
+
+export function lastFour(e164: string): string {
+  return e164.replace(/\D/g, "").slice(-4);
+}
+
 function parseDate(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const d = new Date(`${value}T00:00:00Z`);
@@ -98,25 +116,36 @@ export function formatMinutes(total: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-export type LogEntry = { playerId: string; logDate: string; minutes: number; kind: string };
+export type LogEntry = { playerId: string; logDate: string; minutes: number; kind: string; approved: boolean };
 
 export type PlayerSummary = {
   playerId: string;
+  /** Approved minutes only. */
   totalMinutes: number;
+  /** Logged but not yet approved by a parent. */
+  pendingMinutes: number;
+  /** Approved sessions. */
   sessions: number;
+  /** Approved minutes by type of work. */
   byKind: Record<string, number>;
+  /** Most recent day with approved time. */
   lastLogged: string | null;
 };
 
-/** Totals per player over the entries given (the caller has already applied the date range). */
+/** Totals per player over the entries given (the caller has already applied the date range).
+ *  Only parent-approved time counts toward the totals; the rest is reported as pending. */
 export function summarizeByPlayer(playerIds: string[], entries: LogEntry[]): Map<string, PlayerSummary> {
   const out = new Map<string, PlayerSummary>();
   for (const id of playerIds) {
-    out.set(id, { playerId: id, totalMinutes: 0, sessions: 0, byKind: {}, lastLogged: null });
+    out.set(id, { playerId: id, totalMinutes: 0, pendingMinutes: 0, sessions: 0, byKind: {}, lastLogged: null });
   }
   for (const e of entries) {
     const s = out.get(e.playerId);
     if (!s) continue;
+    if (!e.approved) {
+      s.pendingMinutes += e.minutes;
+      continue;
+    }
     s.totalMinutes += e.minutes;
     s.sessions += 1;
     s.byKind[e.kind] = (s.byKind[e.kind] ?? 0) + e.minutes;

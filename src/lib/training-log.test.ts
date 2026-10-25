@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   formatMinutes,
+  formatPhone,
+  lastFour,
+  normalizePhone,
   isLoggableDate,
   parseRange,
   publicName,
@@ -82,17 +85,42 @@ describe("formatMinutes", () => {
 });
 
 describe("summarizeByPlayer", () => {
-  it("totals minutes, sessions, kinds and last day per player, including players with none", () => {
+  it("counts approved time only and reports the rest as pending", () => {
     const s = summarizeByPlayer(["a", "b", "c"], [
-      { playerId: "a", logDate: "2026-10-20", minutes: 30, kind: "Wall Ball" },
-      { playerId: "a", logDate: "2026-10-22", minutes: 45, kind: "Shooting" },
-      { playerId: "a", logDate: "2026-10-21", minutes: 15, kind: "Wall Ball" },
-      { playerId: "b", logDate: "2026-10-23", minutes: 60, kind: "Private Training" },
-      { playerId: "zzz", logDate: "2026-10-23", minutes: 99, kind: "Wall Ball" },
+      { playerId: "a", logDate: "2026-10-20", minutes: 30, kind: "Wall Ball", approved: true },
+      { playerId: "a", logDate: "2026-10-22", minutes: 45, kind: "Shooting", approved: true },
+      { playerId: "a", logDate: "2026-10-21", minutes: 15, kind: "Wall Ball", approved: true },
+      { playerId: "a", logDate: "2026-10-23", minutes: 20, kind: "Dodging", approved: false },
+      { playerId: "b", logDate: "2026-10-23", minutes: 60, kind: "Private Training", approved: false },
+      { playerId: "zzz", logDate: "2026-10-23", minutes: 99, kind: "Wall Ball", approved: true },
     ]);
-    expect(s.get("a")).toMatchObject({ totalMinutes: 90, sessions: 3, lastLogged: "2026-10-22", byKind: { "Wall Ball": 45, Shooting: 45 } });
-    expect(s.get("b")?.totalMinutes).toBe(60);
-    expect(s.get("c")).toMatchObject({ totalMinutes: 0, sessions: 0, lastLogged: null });
+    expect(s.get("a")).toMatchObject({
+      totalMinutes: 90,
+      pendingMinutes: 20,
+      sessions: 3,
+      lastLogged: "2026-10-22",
+      byKind: { "Wall Ball": 45, Shooting: 45 },
+    });
+    expect(s.get("b")).toMatchObject({ totalMinutes: 0, pendingMinutes: 60, sessions: 0, lastLogged: null });
+    expect(s.get("c")).toMatchObject({ totalMinutes: 0, pendingMinutes: 0, sessions: 0, lastLogged: null });
     expect(s.has("zzz")).toBe(false);
+  });
+});
+
+describe("phone numbers", () => {
+  it("normalizes US mobile numbers", () => {
+    expect(normalizePhone("(703) 555-0142")).toBe("+17035550142");
+    expect(normalizePhone("1-703-555-0142")).toBe("+17035550142");
+    expect(normalizePhone("703.555.0142")).toBe("+17035550142");
+  });
+  it("rejects numbers that can't be real", () => {
+    expect(normalizePhone("555-0142")).toBeNull();
+    expect(normalizePhone("0035550142")).toBeNull();
+    expect(normalizePhone("123")).toBeNull();
+    expect(normalizePhone("")).toBeNull();
+  });
+  it("formats for display", () => {
+    expect(formatPhone("+17035550142")).toBe("(703) 555-0142");
+    expect(lastFour("+17035550142")).toBe("0142");
   });
 });

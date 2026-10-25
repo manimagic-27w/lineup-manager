@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { deleteLogEntry, listMyEntries, saveLogEntry, type LogEntryDTO } from "@/actions/training-log";
+import {
+  deleteLogEntry,
+  getPlayerAccess,
+  listMyEntries,
+  saveLogEntry,
+  setupPlayerPin,
+  updateParentPhone,
+  type LogEntryDTO,
+} from "@/actions/training-log";
 import { TRAINING_KINDS } from "@/lib/db/schema";
-import { addDays, formatMinutes, weekStart } from "@/lib/training-log";
+import { addDays, formatMinutes, formatPhone, weekStart } from "@/lib/training-log";
 import { cn } from "@/lib/utils";
 
 type RosterOption = { id: string; label: string };
@@ -25,8 +33,20 @@ function prettyDate(value: string) {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
+type Stage = "pick" | "checking" | "setup" | "pin" | "open";
+
 export function TrainingLogClient({ token, roster }: { token: string; roster: RosterOption[] }) {
   const [playerId, setPlayerId] = useState("");
+  const [stage, setStage] = useState<Stage>("pick");
+  const [hasPhone, setHasPhone] = useState(false);
+  const [pin, setPin] = useState(""); // held only in memory for this visit; never stored on the phone
+  const [pinInput, setPinInput] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [gateError, setGateError] = useState("");
+  const [parentPhone, setParentPhone] = useState<string | null>(null);
+  const [approvalTokens, setApprovalTokens] = useState<Record<string, string>>({});
+  const [editingPhone, setEditingPhone] = useState(false);
   const [today] = useState(localToday);
   const [entries, setEntries] = useState<LogEntryDTO[] | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -49,48 +69,154 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     return out;
   }, [today]);
 
+  /** Loads the player's entries with their PIN. Returns false (and shows why) if the PIN is refused. */
+  const unlock = useCallback(
+    async (id: string, thePin: string) => {
+      const res = await listMyEntries(token, id, thePin);
+      if (!res.ok) {
+        setGateError(res.error);
+        return false;
+      }
+      setEntries(res.entries);
+      setApprovalTokens(res.approvalTokens);
+      setParentPhone(res.parentPhone);
+      setLoadError("");
+      setPin(thePin);
+      setStage("open");
+      setGateError("");
+      return true;
+    },
+    [token],
+  );
+
+  /** Reloads the list after a change (the PIN is already known). */
   const refresh = useCallback(
-    async (id: string) => {
-      const res = await listMyEntries(token, id);
+    async (id: string, thePin: string) => {
+      const res = await listMyEntries(token, id, thePin);
       if (res.ok) {
         setEntries(res.entries);
+        setApprovalTokens(res.approvalTokens);
+        setParentPhone(res.parentPhone);
         setLoadError("");
       } else {
-        setEntries([]);
         setLoadError(res.error);
       }
     },
     [token],
   );
 
-  // Remember who this phone's player is, as a convenience only (the log itself lives on the server).
+  const openPlayer = useCallback(
+    async (id: string) => {
+      setStage("checking");
+      setGateError("");
+      try {
+        const res = await getPlayerAccess(token, id);
+        if (!res.ok) {
+          setGateError(res.error);
+          setStage("pick");
+          return;
+        }
+        setHasPhone(res.hasPhone);
+        setStage(res.hasPin ? "pin" : "setup");
+      } catch {
+        setGateError("Couldn't reach the server - check your signal and try again.");
+        setStage("pick");
+      }
+    },
+    [token],
+  );
+
+  // Remember which player this phone last used, as a convenience only. The PIN is never remembered,
+  // so the log works the same from any phone or computer.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
         const saved = window.localStorage.getItem(`${STORAGE_KEY}:${token}`);
         if (saved && roster.some((p) => p.id === saved)) {
           setPlayerId(saved);
-          void refresh(saved);
+          void openPlayer(saved);
         }
       } catch {
         /* storage blocked - the player just picks their name again */
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [token, roster, refresh]);
+  }, [token, roster, openPlayer]);
 
   function choosePlayer(id: string) {
     setPlayerId(id);
     setEntries(null);
     setEditingId(null);
     setMessage(null);
+    setPin("");
+    setPinInput("");
+    setPinConfirm("");
+    setPhoneInput("");
+    setGateError("");
+    setEditingPhone(false);
+    setStage("pick");
     try {
       if (id) window.localStorage.setItem(`${STORAGE_KEY}:${token}`, id);
       else window.localStorage.removeItem(`${STORAGE_KEY}:${token}`);
     } catch {
       /* ignore */
     }
-    if (id) void refresh(id);
+    if (id) void openPlayer(id);
+  }
+
+  function submitSetup(ev: React.FormEvent) {
+    ev.preventDefault();
+    setGateError("");
+    if (!/^\d{4}$/.test(pinInput)) return setGateError("Your PIN must be exactly 4 numbers.");
+    if (pinInput !== pinConfirm) return setGateError("The two PINs don't match.");
+    startTransition(async () => {
+      try {
+        const res = await setupPlayerPin({ token, playerId, pin: pinInput, parentPhone: phoneInput });
+        if (!res.ok) return setGateError(res.error);
+        await unlock(playerId, pinInput);
+      } catch {
+        setGateError("Couldn't save - check your signal and try again.");
+      }
+    });
+  }
+
+  function submitPin(ev: React.FormEvent) {
+    ev.preventDefault();
+    setGateError("");
+    if (!/^\d{4}$/.test(pinInput)) return setGateError("Enter your 4-number PIN.");
+    startTransition(async () => {
+      try {
+        const ok = await unlock(playerId, pinInput);
+        if (!ok) setPinInput("");
+      } catch {
+        setGateError("Couldn't reach the server - try again.");
+      }
+    });
+  }
+
+  function lock() {
+    setPin("");
+    setPinInput("");
+    setEntries(null);
+    setEditingId(null);
+    setMessage(null);
+    setStage("pin");
+  }
+
+  function savePhone(ev: React.FormEvent) {
+    ev.preventDefault();
+    startTransition(async () => {
+      try {
+        const res = await updateParentPhone(token, playerId, pin, phoneInput);
+        if (!res.ok) return setMessage({ kind: "error", text: res.error });
+        setParentPhone(res.parentPhone);
+        setEditingPhone(false);
+        setPhoneInput("");
+        setMessage({ kind: "ok", text: "Parent number updated." });
+      } catch {
+        setMessage({ kind: "error", text: "Couldn't save - try again." });
+      }
+    });
   }
 
   function resetForm() {
@@ -118,11 +244,11 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     setMessage(null);
     startTransition(async () => {
       try {
-        const res = await saveLogEntry({ token, playerId, entryId: editingId ?? undefined, date, minutes: mins, kind, note });
+        const res = await saveLogEntry({ token, playerId, pin, entryId: editingId ?? undefined, date, minutes: mins, kind, note });
         if (!res.ok) return setMessage({ kind: "error", text: res.error });
         setMessage({ kind: "ok", text: editingId ? "Entry updated." : "Saved - nice work!" });
         resetForm();
-        await refresh(playerId);
+        await refresh(playerId, pin);
       } catch {
         setMessage({ kind: "error", text: "Couldn't save - check your signal and try again." });
       }
@@ -133,10 +259,10 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     if (!window.confirm("Delete this entry?")) return;
     startTransition(async () => {
       try {
-        const res = await deleteLogEntry(token, playerId, id);
+        const res = await deleteLogEntry(token, playerId, pin, id);
         if (!res.ok) return setMessage({ kind: "error", text: res.error });
         if (editingId === id) resetForm();
-        await refresh(playerId);
+        await refresh(playerId, pin);
       } catch {
         setMessage({ kind: "error", text: "Couldn't delete - try again." });
       }
@@ -147,6 +273,26 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     const start = weekStart(today);
     return (entries ?? []).filter((e) => e.logDate >= start && e.logDate <= addDays(start, 6)).reduce((sum, e) => sum + e.minutes, 0);
   }, [entries, today]);
+
+  const playerLabel = roster.find((r) => r.id === playerId)?.label ?? "";
+
+  /** Days that still have time waiting on a parent, newest first. */
+  const waitingDays = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const e of entries ?? []) if (!e.approved) byDay.set(e.logDate, (byDay.get(e.logDate) ?? 0) + e.minutes);
+    return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [entries]);
+
+  function smsLink(day: string) {
+    const t = approvalTokens[day];
+    if (!t || !parentPhone) return null;
+    const url = `${window.location.origin}/approve/${t}`;
+    const body = `Hi! It's ${playerLabel}. Please approve my lacrosse training time for ${prettyDate(day)}: ${url}`;
+    return `sms:${parentPhone}?&body=${encodeURIComponent(body)}`;
+  }
+
+  const inputCls = "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base";
+  const pinCls = "mt-1 w-32 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-xl tracking-[0.4em]";
 
   return (
     <div className="space-y-5">
@@ -167,9 +313,114 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
             </option>
           ))}
         </select>
+        {stage === "open" && (
+          <button type="button" onClick={lock} className="mt-2 text-sm font-medium text-brand-blue hover:underline">
+            Lock my log
+          </button>
+        )}
       </div>
 
-      {playerId && (
+      {gateError && stage === "pick" && <p className="text-sm text-red-600">{gateError}</p>}
+      {playerId && stage === "checking" && <p className="text-sm text-slate-500">One moment…</p>}
+
+      {playerId && stage === "setup" && (
+        <form onSubmit={submitSetup} className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-base font-semibold text-slate-900">First time here? Set your PIN</h2>
+          <p className="text-sm text-slate-600">
+            Pick a 4-number PIN. You&apos;ll use it each time you open your log, so nobody else can add time under your name. Don&apos;t use a PIN you
+            use anywhere else.
+          </p>
+          <div className="flex gap-4">
+            <div>
+              <label htmlFor="new-pin" className="text-sm font-medium text-slate-700">
+                New PIN
+              </label>
+              <input
+                id="new-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className={pinCls}
+              />
+            </div>
+            <div>
+              <label htmlFor="confirm-pin" className="text-sm font-medium text-slate-700">
+                Type it again
+              </label>
+              <input
+                id="confirm-pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                value={pinConfirm}
+                onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className={pinCls}
+              />
+            </div>
+          </div>
+          {!hasPhone && (
+            <div>
+              <label htmlFor="parent-phone" className="text-sm font-medium text-slate-700">
+                Parent&apos;s mobile number
+              </label>
+              <input
+                id="parent-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="(555) 123-4567"
+                className={inputCls}
+              />
+              <p className="mt-1 text-xs text-slate-500">A parent approves your time from a text link, so this must be a parent&apos;s phone.</p>
+            </div>
+          )}
+          {gateError && <p className="text-sm text-red-600">{gateError}</p>}
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-md bg-brand-orange px-4 py-2.5 text-base font-semibold text-white hover:bg-brand-orange-light disabled:opacity-60"
+          >
+            {pending ? "Saving…" : "Save PIN and continue"}
+          </button>
+        </form>
+      )}
+
+      {playerId && stage === "pin" && (
+        <form onSubmit={submitPin} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <label htmlFor="enter-pin" className="text-base font-semibold text-slate-900">
+            Enter your PIN
+          </label>
+          <div>
+            <input
+              id="enter-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className={pinCls}
+            />
+          </div>
+          {gateError && <p className="text-sm text-red-600">{gateError}</p>}
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-md bg-brand-orange px-4 py-2.5 text-base font-semibold text-white hover:bg-brand-orange-light disabled:opacity-60"
+          >
+            {pending ? "Checking…" : "Open my log"}
+          </button>
+          <p className="text-xs text-slate-500">Forgot your PIN? Ask your coach to reset it.</p>
+        </form>
+      )}
+
+      {playerId && stage === "open" && (
         <>
           <form ref={formRef} onSubmit={submit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="text-base font-semibold text-slate-900">{editingId ? "Edit entry" : "Add time"}</h2>
@@ -287,6 +538,61 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
           </form>
 
           <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-base font-semibold text-slate-900">Parent approval</h2>
+              <button type="button" onClick={() => { setEditingPhone((v) => !v); setPhoneInput(""); }} className="text-sm font-medium text-brand-blue hover:underline">
+                {editingPhone ? "Cancel" : "Change number"}
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-slate-600">
+              Your coach counts time once a parent approves it. Parent&apos;s phone:{" "}
+              <strong className="text-slate-900">{parentPhone ? formatPhone(parentPhone) : "not set"}</strong>
+            </p>
+            {editingPhone && (
+              <form onSubmit={savePhone} className="mt-2 flex gap-2">
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  aria-label="Parent's mobile number"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-base"
+                />
+                <button type="submit" disabled={pending} className="rounded-md bg-brand-blue px-4 py-2 text-base font-semibold text-white disabled:opacity-60">
+                  Save
+                </button>
+              </form>
+            )}
+            {entries && waitingDays.length === 0 ? (
+              <p className="mt-3 text-sm text-green-700">Nothing waiting - all your time is approved.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {waitingDays.map(([day, mins]) => {
+                  const href = smsLink(day);
+                  return (
+                    <li key={day} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-3 py-2">
+                      <span className="text-sm text-slate-800">
+                        {prettyDate(day)} &middot; <strong>{formatMinutes(mins)}</strong> waiting
+                      </span>
+                      {href ? (
+                        <a href={href} className="shrink-0 rounded-md bg-brand-orange px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-orange-light">
+                          Text my parent
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-500">Add a parent number</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {waitingDays.length > 0 && (
+              <p className="mt-2 text-xs text-slate-500">Tapping the button opens a text to your parent on your phone. Press send to deliver it.</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-slate-900">Your recent entries</h2>
               <span className="text-sm text-slate-600">This week: <strong className="text-slate-900">{formatMinutes(thisWeek)}</strong></span>
@@ -302,7 +608,15 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
                   <li key={e.id} className="flex items-start justify-between gap-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900">
-                        {formatMinutes(e.minutes)} &middot; {e.kind}
+                        {formatMinutes(e.minutes)} &middot; {e.kind}{" "}
+                        <span
+                          className={cn(
+                            "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                            e.approved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800",
+                          )}
+                        >
+                          {e.approved ? "Approved" : "Waiting"}
+                        </span>
                       </p>
                       <p className="text-xs text-slate-500">
                         {prettyDate(e.logDate)}

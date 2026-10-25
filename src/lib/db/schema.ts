@@ -553,8 +553,45 @@ export const trainingLogs = pgTable(
     minutes: integer("minutes").notNull(),
     kind: text("kind").notNull(),
     note: text("note").notNull().default(""),
+    // Set when a parent approves the day (see training_approvals). Null = still pending. Any change
+    // the player makes to an entry puts it back to pending.
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("training_logs_player_date_idx").on(t.playerId, t.logDate), index("training_logs_team_date_idx").on(t.teamId, t.logDate)],
+);
+
+// Per-player settings for the public training log: the 4-digit PIN that protects their entries
+// (stored only as a salted scrypt hash) and the parent's mobile number the "Text my parent" button
+// pre-fills. The app never sends a text itself - the number only fills in the player's own
+// Messages draft. A coach clearing pin_hash lets the player set a new PIN.
+export const trainingProfiles = pgTable("training_profiles", {
+  playerId: uuid("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  pinHash: text("pin_hash"),
+  parentPhone: text("parent_phone"), // +1XXXXXXXXXX
+  failedAttempts: integer("failed_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One approval link per player per day. A parent opening /approve/<token> sees that day's
+// entries and approves them all at once; entries added later the same day wait for the next approval.
+export const trainingApprovals = pgTable(
+  "training_approvals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    token: text("token").notNull().unique(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    logDate: date("log_date").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("training_approvals_player_date").on(t.playerId, t.logDate)],
 );
