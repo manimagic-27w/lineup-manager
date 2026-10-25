@@ -87,7 +87,7 @@ export async function addStatCategory(formData: FormData) {
 
   await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "stat_category_added", details: parsed.label });
   await broadcastTeamUpdate(parsed.teamId, "stats");
-  revalidatePath(`/teams/${parsed.teamId}/stats`);
+  revalidatePath(`/teams/${parsed.teamId}/stats`, "layout");
 }
 
 const removeCategorySchema = z.object({ teamId: z.string().uuid(), categoryId: z.string().uuid() });
@@ -110,7 +110,7 @@ export async function removeStatCategory(formData: FormData) {
 
   await logActivity({ teamId: parsed.teamId, actorUserId: userId, action: "stat_category_removed", details: cat.label });
   await broadcastTeamUpdate(parsed.teamId, "stats");
-  revalidatePath(`/teams/${parsed.teamId}/stats`);
+  revalidatePath(`/teams/${parsed.teamId}/stats`, "layout");
 }
 
 const setValueSchema = z.object({
@@ -159,7 +159,7 @@ export async function setStatValue(formData: FormData) {
     });
 
   await broadcastTeamUpdate(parsed.teamId, "stats", parsed.gameId);
-  revalidatePath(`/teams/${parsed.teamId}/stats`);
+  revalidatePath(`/teams/${parsed.teamId}/stats`, "layout");
 }
 
 /** Adds any default categories a team's stats sheet is missing, once per team version: a team that
@@ -284,6 +284,6 @@ export async function importGameStats(input: z.input<typeof importSchema>): Prom
 
   await logActivity({ teamId, actorUserId: userId, action: "stats_imported", details: `${done.size} players` });
   await broadcastTeamUpdate(teamId, "stats", gameId);
-  revalidatePath(`/teams/${teamId}/stats`);
+  revalidatePath(`/teams/${teamId}/stats`, "layout");
   return { ok: true, imported: done.size, skippedUnavailable, categoriesAdded };
 }

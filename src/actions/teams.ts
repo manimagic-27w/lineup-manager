@@ -178,5 +178,5 @@ export async function enableStatsForTeam(formData: FormData) {
     details: team.name,
   });
 
-  revalidatePath(`/teams/${teamId}/stats`);
+  revalidatePath(`/teams/${teamId}/stats`, "layout");
 }
