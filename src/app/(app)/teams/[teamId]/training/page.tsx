@@ -154,7 +154,8 @@ export default async function TrainingPage({
                   </summary>
                   <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
                     <span>
-                      PIN: {profileByPlayer.get(p.id)?.hasPin ? "set" : "not set yet"} &middot; Parent phone:{" "}
+                      PIN: {profileByPlayer.get(p.id)?.hasPin ? "set" : "not set yet"} &middot; Player phone:{" "}
+                      {profileByPlayer.get(p.id)?.playerPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.playerPhone!)}` : "not entered"} &middot; Parent phone:{" "}
                       {profileByPlayer.get(p.id)?.parentPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.parentPhone!)}` : "not entered"}
                     </span>
                     {profileByPlayer.get(p.id)?.hasPin && <ResetPinButton teamId={teamId} playerId={p.id} playerName={p.name} />}

@@ -572,6 +572,7 @@ export const trainingProfiles = pgTable("training_profiles", {
     .references(() => players.id, { onDelete: "cascade" }),
   pinHash: text("pin_hash"),
   parentPhone: text("parent_phone"), // +1XXXXXXXXXX
+  playerPhone: text("player_phone"), // +1XXXXXXXXXX; must differ from parentPhone
   failedAttempts: integer("failed_attempts").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

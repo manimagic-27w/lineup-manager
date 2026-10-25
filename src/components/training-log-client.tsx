@@ -8,6 +8,7 @@ import {
   saveLogEntry,
   setupPlayerPin,
   updateParentPhone,
+  updatePlayerPhone,
   type LogEntryDTO,
 } from "@/actions/training-log";
 import { TRAINING_KINDS } from "@/lib/db/schema";
@@ -38,11 +39,14 @@ type Stage = "pick" | "checking" | "setup" | "pin" | "open";
 export function TrainingLogClient({ token, roster }: { token: string; roster: RosterOption[] }) {
   const [playerId, setPlayerId] = useState("");
   const [stage, setStage] = useState<Stage>("pick");
-  const [hasPhone, setHasPhone] = useState(false);
+  const [hasParentPhone, setHasParentPhone] = useState(false);
+  const [hasPlayerPhone, setHasPlayerPhone] = useState(false);
   const [pin, setPin] = useState(""); // held only in memory for this visit; never stored on the phone
   const [pinInput, setPinInput] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
-  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState(""); // parent number
+  const [ownPhoneInput, setOwnPhoneInput] = useState(""); // the player's own number
+  const [playerPhone, setPlayerPhone] = useState<string | null>(null);
   const [gateError, setGateError] = useState("");
   const [parentPhone, setParentPhone] = useState<string | null>(null);
   const [approvalTokens, setApprovalTokens] = useState<Record<string, string>>({});
@@ -80,6 +84,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
       setEntries(res.entries);
       setApprovalTokens(res.approvalTokens);
       setParentPhone(res.parentPhone);
+      setPlayerPhone(res.playerPhone);
       setLoadError("");
       setPin(thePin);
       setStage("open");
@@ -97,6 +102,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         setEntries(res.entries);
         setApprovalTokens(res.approvalTokens);
         setParentPhone(res.parentPhone);
+        setPlayerPhone(res.playerPhone);
         setLoadError("");
       } else {
         setLoadError(res.error);
@@ -116,7 +122,8 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
           setStage("pick");
           return;
         }
-        setHasPhone(res.hasPhone);
+        setHasParentPhone(res.hasParentPhone);
+        setHasPlayerPhone(res.hasPlayerPhone);
         setStage(res.hasPin ? "pin" : "setup");
       } catch {
         setGateError("Couldn't reach the server - check your signal and try again.");
@@ -152,6 +159,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     setPinInput("");
     setPinConfirm("");
     setPhoneInput("");
+    setOwnPhoneInput("");
     setGateError("");
     setEditingPhone(false);
     setStage("pick");
@@ -171,7 +179,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     if (pinInput !== pinConfirm) return setGateError("The two PINs don't match.");
     startTransition(async () => {
       try {
-        const res = await setupPlayerPin({ token, playerId, pin: pinInput, parentPhone: phoneInput });
+        const res = await setupPlayerPin({ token, playerId, pin: pinInput, playerPhone: ownPhoneInput, parentPhone: phoneInput });
         if (!res.ok) return setGateError(res.error);
         await unlock(playerId, pinInput);
       } catch {
@@ -203,16 +211,25 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     setStage("pin");
   }
 
-  function savePhone(ev: React.FormEvent) {
+  /** Saves whichever of the two numbers was typed (used by "Change numbers" and the one-time prompt). */
+  function savePhones(ev: React.FormEvent) {
     ev.preventDefault();
     startTransition(async () => {
       try {
-        const res = await updateParentPhone(token, playerId, pin, phoneInput);
-        if (!res.ok) return setMessage({ kind: "error", text: res.error });
-        setParentPhone(res.parentPhone);
+        if (ownPhoneInput.trim()) {
+          const res = await updatePlayerPhone(token, playerId, pin, ownPhoneInput);
+          if (!res.ok) return setMessage({ kind: "error", text: res.error });
+          setPlayerPhone(res.playerPhone);
+        }
+        if (phoneInput.trim()) {
+          const res = await updateParentPhone(token, playerId, pin, phoneInput);
+          if (!res.ok) return setMessage({ kind: "error", text: res.error });
+          setParentPhone(res.parentPhone);
+        }
         setEditingPhone(false);
         setPhoneInput("");
-        setMessage({ kind: "ok", text: "Parent number updated." });
+        setOwnPhoneInput("");
+        setMessage({ kind: "ok", text: "Numbers updated." });
       } catch {
         setMessage({ kind: "error", text: "Couldn't save - try again." });
       }
@@ -362,7 +379,24 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
               />
             </div>
           </div>
-          {!hasPhone && (
+          {!hasPlayerPhone && (
+            <div>
+              <label htmlFor="own-phone" className="text-sm font-medium text-slate-700">
+                Your mobile number
+              </label>
+              <input
+                id="own-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                value={ownPhoneInput}
+                onChange={(e) => setOwnPhoneInput(e.target.value)}
+                placeholder="(555) 123-4567"
+                className={inputCls}
+              />
+            </div>
+          )}
+          {!hasParentPhone && (
             <div>
               <label htmlFor="parent-phone" className="text-sm font-medium text-slate-700">
                 Parent&apos;s mobile number
@@ -377,7 +411,9 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
                 placeholder="(555) 123-4567"
                 className={inputCls}
               />
-              <p className="mt-1 text-xs text-slate-500">A parent approves your time from a text link, so this must be a parent&apos;s phone.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Your parent approves your time from a text link, so this must be a different phone from yours.
+              </p>
             </div>
           )}
           {gateError && <p className="text-sm text-red-600">{gateError}</p>}
@@ -420,7 +456,38 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         </form>
       )}
 
-      {playerId && stage === "open" && (
+      {playerId && stage === "open" && !playerPhone && (
+        <form onSubmit={savePhones} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-base font-semibold text-slate-900">One more thing: your mobile number</h2>
+          <p className="text-sm text-slate-600">Add your own mobile number. It has to be different from your parent&apos;s number.</p>
+          <input
+            type="tel"
+            inputMode="tel"
+            aria-label="Your mobile number"
+            value={ownPhoneInput}
+            onChange={(e) => setOwnPhoneInput(e.target.value)}
+            placeholder="(555) 123-4567"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-base"
+          />
+          {!parentPhone && (
+            <input
+              type="tel"
+              inputMode="tel"
+              aria-label="Parent's mobile number"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="Parent's mobile number"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-base"
+            />
+          )}
+          {message && <p className={cn("text-sm", message.kind === "ok" ? "text-green-700" : "text-red-600")}>{message.text}</p>}
+          <button type="submit" disabled={pending} className="w-full rounded-md bg-brand-orange px-4 py-2.5 text-base font-semibold text-white disabled:opacity-60">
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </form>
+      )}
+
+      {playerId && stage === "open" && !!playerPhone && (
         <>
           <form ref={formRef} onSubmit={submit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="text-base font-semibold text-slate-900">{editingId ? "Edit entry" : "Add time"}</h2>
@@ -540,24 +607,35 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="text-base font-semibold text-slate-900">Parent approval</h2>
-              <button type="button" onClick={() => { setEditingPhone((v) => !v); setPhoneInput(""); }} className="text-sm font-medium text-brand-blue hover:underline">
-                {editingPhone ? "Cancel" : "Change number"}
+              <button type="button" onClick={() => { setEditingPhone((v) => !v); setPhoneInput(""); setOwnPhoneInput(""); }} className="text-sm font-medium text-brand-blue hover:underline">
+                {editingPhone ? "Cancel" : "Change numbers"}
               </button>
             </div>
             <p className="mt-1 text-sm text-slate-600">
               Your coach counts time once a parent approves it. Parent&apos;s phone:{" "}
               <strong className="text-slate-900">{parentPhone ? formatPhone(parentPhone) : "not set"}</strong>
+              <br />
+              Your phone: <strong className="text-slate-900">{playerPhone ? formatPhone(playerPhone) : "not set"}</strong>
             </p>
             {editingPhone && (
-              <form onSubmit={savePhone} className="mt-2 flex gap-2">
+              <form onSubmit={savePhones} className="mt-2 space-y-2">
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  aria-label="Your mobile number"
+                  value={ownPhoneInput}
+                  onChange={(e) => setOwnPhoneInput(e.target.value)}
+                  placeholder="Your number (leave blank to keep)"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-base"
+                />
                 <input
                   type="tel"
                   inputMode="tel"
                   aria-label="Parent's mobile number"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
-                  placeholder="(555) 123-4567"
-                  className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-base"
+                  placeholder="Parent's number (leave blank to keep)"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-base"
                 />
                 <button type="submit" disabled={pending} className="rounded-md bg-brand-blue px-4 py-2 text-base font-semibold text-white disabled:opacity-60">
                   Save

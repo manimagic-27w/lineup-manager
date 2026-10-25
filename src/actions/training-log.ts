@@ -55,9 +55,10 @@ async function findLogPlayer(token: string, playerId: string) {
   return { team, playerId: player.id };
 }
 
+const PHONES_MATCH = "Your number and your parent's number must be different. A parent has to approve your time from their own phone.";
 const BAD_LINK = "This link isn't working any more. Ask your coach for a new one.";
 
-type PinCheck = { ok: true; parentPhone: string | null } | Failure;
+type PinCheck = { ok: true; parentPhone: string | null; playerPhone: string | null } | Failure;
 
 /** Checks a player's PIN, counting wrong guesses and locking after too many. */
 async function checkPin(playerId: string, pin: string): Promise<PinCheck> {
@@ -71,7 +72,7 @@ async function checkPin(playerId: string, pin: string): Promise<PinCheck> {
     if (profile.failedAttempts > 0 || profile.lockedUntil) {
       await db.update(trainingProfiles).set({ failedAttempts: 0, lockedUntil: null }).where(eq(trainingProfiles.playerId, playerId));
     }
-    return { ok: true, parentPhone: profile.parentPhone };
+    return { ok: true, parentPhone: profile.parentPhone, playerPhone: profile.playerPhone };
   }
   const attempts = profile.failedAttempts + 1;
   if (attempts >= MAX_PIN_ATTEMPTS) {
@@ -90,11 +91,11 @@ async function checkPin(playerId: string, pin: string): Promise<PinCheck> {
 export async function getPlayerAccess(
   token: string,
   playerId: string,
-): Promise<{ ok: true; hasPin: boolean; hasPhone: boolean } | Failure> {
+): Promise<{ ok: true; hasPin: boolean; hasParentPhone: boolean; hasPlayerPhone: boolean } | Failure> {
   const found = await findLogPlayer(token, playerId);
   if (!found) return { ok: false, error: BAD_LINK };
   const [profile] = await db.select().from(trainingProfiles).where(eq(trainingProfiles.playerId, found.playerId)).limit(1);
-  return { ok: true, hasPin: !!profile?.pinHash, hasPhone: !!profile?.parentPhone };
+  return { ok: true, hasPin: !!profile?.pinHash, hasParentPhone: !!profile?.parentPhone, hasPlayerPhone: !!profile?.playerPhone };
 }
 
 /** First-time setup: a 4-digit PIN, plus a parent's mobile number if none is on file yet. */
@@ -102,6 +103,7 @@ export async function setupPlayerPin(input: {
   token: string;
   playerId: string;
   pin: string;
+  playerPhone?: string;
   parentPhone?: string;
 }): Promise<{ ok: true } | Failure> {
   if (!isValidPin(input.pin)) return { ok: false, error: "Your PIN must be exactly 4 numbers." };
@@ -111,19 +113,26 @@ export async function setupPlayerPin(input: {
   const [existing] = await db.select().from(trainingProfiles).where(eq(trainingProfiles.playerId, found.playerId)).limit(1);
   if (existing?.pinHash) return { ok: false, error: "A PIN is already set for this player. Ask your coach to reset it if you forgot it." };
 
-  let phone = existing?.parentPhone ?? null;
+  let parent = existing?.parentPhone ?? null;
   if (input.parentPhone?.trim()) {
-    phone = normalizePhone(input.parentPhone);
-    if (!phone) return { ok: false, error: "Enter a 10-digit mobile number for your parent." };
+    parent = normalizePhone(input.parentPhone);
+    if (!parent) return { ok: false, error: "Enter a 10-digit mobile number for your parent." };
   }
-  if (!phone) return { ok: false, error: "Enter a mobile number for the parent who will approve your time." };
+  let own = existing?.playerPhone ?? null;
+  if (input.playerPhone?.trim()) {
+    own = normalizePhone(input.playerPhone);
+    if (!own) return { ok: false, error: "Enter your own 10-digit mobile number." };
+  }
+  if (!own) return { ok: false, error: "Enter your own mobile number." };
+  if (!parent) return { ok: false, error: "Enter a mobile number for the parent who will approve your time." };
+  if (own === parent) return { ok: false, error: PHONES_MATCH };
 
   const saved = await db
     .insert(trainingProfiles)
-    .values({ playerId: found.playerId, pinHash: hashPin(input.pin), parentPhone: phone })
+    .values({ playerId: found.playerId, pinHash: hashPin(input.pin), parentPhone: parent, playerPhone: own })
     .onConflictDoUpdate({
       target: trainingProfiles.playerId,
-      set: { pinHash: hashPin(input.pin), parentPhone: phone, failedAttempts: 0, lockedUntil: null, updatedAt: new Date() },
+      set: { pinHash: hashPin(input.pin), parentPhone: parent, playerPhone: own, failedAttempts: 0, lockedUntil: null, updatedAt: new Date() },
       setWhere: isNull(trainingProfiles.pinHash), // never overwrite a PIN somebody just set
     })
     .returning({ playerId: trainingProfiles.playerId });
@@ -144,9 +153,28 @@ export async function updateParentPhone(
   if (!check.ok) return check;
   const phone = normalizePhone(parentPhone);
   if (!phone) return { ok: false, error: "Enter a 10-digit mobile number for your parent." };
+  if (phone === check.playerPhone) return { ok: false, error: PHONES_MATCH };
   await db.update(trainingProfiles).set({ parentPhone: phone, updatedAt: new Date() }).where(eq(trainingProfiles.playerId, found.playerId));
   revalidatePath(`/teams/${found.team.id}/training`);
   return { ok: true, parentPhone: phone };
+}
+
+export async function updatePlayerPhone(
+  token: string,
+  playerId: string,
+  pin: string,
+  playerPhone: string,
+): Promise<{ ok: true; playerPhone: string } | Failure> {
+  const found = await findLogPlayer(token, playerId);
+  if (!found) return { ok: false, error: BAD_LINK };
+  const check = await checkPin(found.playerId, pin);
+  if (!check.ok) return check;
+  const phone = normalizePhone(playerPhone);
+  if (!phone) return { ok: false, error: "Enter your own 10-digit mobile number." };
+  if (phone === check.parentPhone) return { ok: false, error: PHONES_MATCH };
+  await db.update(trainingProfiles).set({ playerPhone: phone, updatedAt: new Date() }).where(eq(trainingProfiles.playerId, found.playerId));
+  revalidatePath(`/teams/${found.team.id}/training`);
+  return { ok: true, playerPhone: phone };
 }
 
 /** Unlocks a player's log: checks the PIN and returns their last 30 days plus, for each day that
@@ -155,7 +183,7 @@ export async function listMyEntries(
   token: string,
   playerId: string,
   pin: string,
-): Promise<{ ok: true; entries: LogEntryDTO[]; approvalTokens: Record<string, string>; parentPhone: string | null } | Failure> {
+): Promise<{ ok: true; entries: LogEntryDTO[]; approvalTokens: Record<string, string>; parentPhone: string | null; playerPhone: string | null } | Failure> {
   const found = await findLogPlayer(token, playerId);
   if (!found) return { ok: false, error: BAD_LINK };
   const check = await checkPin(found.playerId, pin);
@@ -198,6 +226,7 @@ export async function listMyEntries(
     })),
     approvalTokens,
     parentPhone: check.parentPhone,
+    playerPhone: check.playerPhone,
   };
 }
 
@@ -316,6 +345,7 @@ export async function listTeamProfiles(teamId: string) {
       playerId: trainingProfiles.playerId,
       hasPin: sql<boolean>`${trainingProfiles.pinHash} is not null`,
       parentPhone: trainingProfiles.parentPhone,
+      playerPhone: trainingProfiles.playerPhone,
     })
     .from(trainingProfiles)
     .innerJoin(players, eq(players.id, trainingProfiles.playerId))
