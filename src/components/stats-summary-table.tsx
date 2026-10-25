@@ -69,6 +69,7 @@ export function StatsSummaryTable({
   }
 
   const show = (r: Row, key: string) => {
+    if (mode === "avg" && key !== "games" && r.games === 0) return "–"; // no games marked Available
     const n = value(r, key);
     return mode === "avg" ? formatStat(n, 1) : formatStat(n);
   };
@@ -144,7 +145,7 @@ export function StatsSummaryTable({
           )}
         </table>
       </div>
-      <p className="text-xs text-slate-500">&ldquo;Games&rdquo; counts games where the player has at least one stat entered. Per-game averages use that number.</p>
+      <p className="text-xs text-slate-500">&ldquo;Games&rdquo; counts games where the player is marked Available on the game itself. Per-game averages divide by that number.</p>
     </div>
   );
 }

@@ -18,14 +18,18 @@ describe("filterGamesBySeason", () => {
 
 describe("rollupPlayer", () => {
   const values = { "g1:p:goals": "2", "g1:p:shots": "3", "g2:p:goals": "0", "g3:p:goals": "1" };
-  it("totals each category and counts games with stats", () => {
-    const r = rollupPlayer("p", games, ["goals", "shots", "assists"], values);
+  const availability = { "g1:p": "Available", "g2:p": "Maybe", "g3:p": "Available" };
+  it("totals each category and counts only games marked Available", () => {
+    const r = rollupPlayer("p", games, ["goals", "shots", "assists"], values, availability);
     expect(r.totals).toEqual({ goals: 3, shots: 3, assists: 0 });
-    expect(r.games).toBe(3); // a recorded 0 still counts as a game with stats
+    expect(r.games).toBe(2); // g2 was only "Maybe", so a recorded 0 there is not a game played
   });
   it("respects the game filter and ignores blanks", () => {
-    const r = rollupPlayer("p", [games[2]], ["goals"], { ...values, "g3:p:goals": "" });
-    expect(r).toEqual({ playerId: "p", games: 0, totals: { goals: 0 } });
+    const r = rollupPlayer("p", [games[2]], ["goals"], { ...values, "g3:p:goals": "" }, availability);
+    expect(r).toEqual({ playerId: "p", games: 1, totals: { goals: 0 } });
+  });
+  it("counts no games when availability was never set", () => {
+    expect(rollupPlayer("p", games, ["goals"], values, {}).games).toBe(0);
   });
 });
 

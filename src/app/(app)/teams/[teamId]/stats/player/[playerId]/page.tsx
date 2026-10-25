@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { seasons } from "@/lib/db/schema";
 import { getStatSheet, upgradeStatCategories } from "@/actions/stats";
+import { countEventsByGame } from "@/lib/game-events";
 import { requireTeamAccess } from "@/lib/auth";
 import { StatsEnable } from "@/components/stats-enable";
 import { SeasonPills } from "@/components/season-pills";
@@ -29,8 +30,9 @@ export default async function PlayerStatsPage({
 
   const teamSeasons = await db.select({ id: seasons.id, name: seasons.name }).from(seasons).where(eq(seasons.teamId, teamId)).orderBy(asc(seasons.createdAt));
   const games = filterGamesBySeason(sheet.games, season);
+  const logged = await countEventsByGame(teamId);
   const categoryIds = sheet.categories.map((c) => c.id);
-  const roll = rollupPlayer(playerId, games, categoryIds, sheet.values);
+  const roll = rollupPlayer(playerId, games, categoryIds, sheet.values, sheet.availability);
   const back = `/teams/${teamId}/stats${season === "all" ? "" : `?season=${season}`}`;
 
   return (
@@ -45,7 +47,7 @@ export default async function PlayerStatsPage({
           {player.name}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Game-by-game stats. {roll.games} game{roll.games === 1 ? "" : "s"} with stats entered.
+          Game-by-game stats. {roll.games} game{roll.games === 1 ? "" : "s"} played (marked Available on the game).
         </p>
       </div>
       <SeasonPills
@@ -78,7 +80,15 @@ export default async function PlayerStatsPage({
                 return (
                   <tr key={g.id} className={cn(out && "bg-slate-50 text-slate-400")}>
                     <th scope="row" className={cn("sticky left-0 z-10 px-3 py-2 text-left font-medium", out ? "bg-slate-50 text-slate-500" : "bg-white text-slate-900")}>
-                      <div>{formatDate(g.date)}</div>
+                      <div>
+                        {logged.has(g.id) ? (
+                          <Link href={`/teams/${teamId}/stats/game/${g.id}`} className="text-brand-blue hover:underline" title="See the game log">
+                            {formatDate(g.date)}
+                          </Link>
+                        ) : (
+                          formatDate(g.date)
+                        )}
+                      </div>
                       <div className="text-xs font-normal text-slate-500">
                         {g.opponent ? `vs ${g.opponent}` : "Game"}
                         {g.ourScore !== null && g.opponentScore !== null ? ` · ${g.ourScore}-${g.opponentScore}` : ""}

@@ -120,6 +120,13 @@
       "when": 1792957238585,
       "tag": "0016_stats_version",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792959800784,
+      "tag": "0017_game_events",
+      "breakpoints": true
     }
   ]
 }

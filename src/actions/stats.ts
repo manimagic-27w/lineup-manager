@@ -11,6 +11,7 @@ import {
   statCategories,
   statValues,
   games,
+  gameEvents,
   gamePlayers,
   players,
   teams,
@@ -46,7 +47,7 @@ export async function getStatSheet(teamId: string) {
   const activeRoster = roster.filter((p) => !p.archivedAt && !p.isGuest);
 
   if (teamGames.length === 0 || activeRoster.length === 0 || categories.length === 0) {
-    return { categories, games: teamGames, roster: activeRoster, values: {}, blackouts: {} };
+    return { categories, games: teamGames, roster: activeRoster, values: {}, blackouts: {}, availability: {} as Record<string, string> };
   }
 
   const gameIds = teamGames.map((g) => g.id);
@@ -57,8 +58,10 @@ export async function getStatSheet(teamId: string) {
   const values = await db.select().from(statValues).where(inArray(statValues.gameId, gameIds));
 
   const blackouts: Record<string, boolean> = {};
+  const statuses: Record<string, string> = {};
   for (const a of availability) {
     blackouts[`${a.gameId}:${a.playerId}`] = a.status === "Not Available";
+    statuses[`${a.gameId}:${a.playerId}`] = a.status;
   }
 
   const valueMap: Record<string, string> = {};
@@ -66,7 +69,7 @@ export async function getStatSheet(teamId: string) {
     valueMap[`${v.gameId}:${v.playerId}:${v.categoryId}`] = v.value;
   }
 
-  return { categories, games: teamGames, roster: activeRoster, values: valueMap, blackouts };
+  return { categories, games: teamGames, roster: activeRoster, values: valueMap, blackouts, availability: statuses };
 }
 
 const addCategorySchema = z.object({ teamId: z.string().uuid(), label: z.string().trim().min(1).max(60) });
@@ -200,16 +203,34 @@ const importSchema = z.object({
     .array(z.object({ playerId: z.string().uuid(), stats: z.record(z.string(), z.number().int().min(0).max(999)) }))
     .min(1)
     .max(80),
+  // The play-by-play, when the pasted text had one. It replaces any log already saved for the game.
+  events: z
+    .array(
+      z.object({
+        seq: z.number().int().min(1),
+        period: z.number().int().min(1).max(9),
+        periodLabel: z.string().max(40),
+        remainingSec: z.number().int().min(0).max(10_000).nullable(),
+        elapsedSec: z.number().int().min(0).max(10_000).nullable(),
+        paused: z.boolean(),
+        kind: z.string().max(30),
+        label: z.string().max(60),
+        playerId: z.string().uuid().nullable(),
+        playerName: z.string().max(80),
+      }),
+    )
+    .max(600)
+    .optional(),
 });
 
 /** Writes a parsed box score into one game's stats. Creates any missing categories, replaces the
  *  numbers already entered for the imported stats, and skips players marked Not Available. */
 export async function importGameStats(input: z.input<typeof importSchema>): Promise<
-  { ok: true; imported: number; skippedUnavailable: string[]; categoriesAdded: string[] } | { ok: false; error: string }
+  { ok: true; imported: number; skippedUnavailable: string[]; categoriesAdded: string[]; events: number } | { ok: false; error: string }
 > {
   const parsed = importSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That import wasn't valid. Check the preview and try again." };
-  const { teamId, gameId, rows } = parsed.data;
+  const { teamId, gameId, rows, events } = parsed.data;
   const { userId } = await requireTeamAccess(teamId);
 
   const [game] = await db.select({ id: games.id }).from(games).where(and(eq(games.id, gameId), eq(games.teamId, teamId))).limit(1);
@@ -282,8 +303,33 @@ export async function importGameStats(input: z.input<typeof importSchema>): Prom
       });
   }
 
-  await logActivity({ teamId, actorUserId: userId, action: "stats_imported", details: `${done.size} players` });
+  if (events && events.length > 0) {
+    const eventPlayerIds = [...new Set(events.flatMap((e) => (e.playerId ? [e.playerId] : [])))];
+    const teamPlayers = new Set(
+      eventPlayerIds.length === 0
+        ? []
+        : (await db.select({ id: players.id }).from(players).where(and(eq(players.teamId, teamId), inArray(players.id, eventPlayerIds)))).map((p) => p.id),
+    );
+    await db.delete(gameEvents).where(eq(gameEvents.gameId, gameId));
+    await db.insert(gameEvents).values(
+      events.map((e) => ({
+        gameId,
+        seq: e.seq,
+        period: e.period,
+        periodLabel: e.periodLabel,
+        remainingSec: e.remainingSec,
+        elapsedSec: e.elapsedSec,
+        paused: e.paused,
+        kind: e.kind,
+        label: e.label,
+        playerId: e.playerId && teamPlayers.has(e.playerId) ? e.playerId : null,
+        playerName: e.playerName,
+      })),
+    );
+  }
+
+  await logActivity({ teamId, actorUserId: userId, action: "stats_imported", details: `${done.size} players${events && events.length > 0 ? `, ${events.length} plays` : ""}` });
   await broadcastTeamUpdate(teamId, "stats", gameId);
   revalidatePath(`/teams/${teamId}/stats`, "layout");
-  return { ok: true, imported: done.size, skippedUnavailable, categoriesAdded };
+  return { ok: true, imported: done.size, skippedUnavailable, categoriesAdded, events: events?.length ?? 0 };
 }

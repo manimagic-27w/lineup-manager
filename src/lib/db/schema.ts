@@ -426,6 +426,30 @@ export const statValues = pgTable(
   (t) => [primaryKey({ columns: [t.gameId, t.playerId, t.categoryId] })]
 );
 
+// The play-by-play from an imported box score: one row per event, in the order the stat keeper
+// logged them. Importing a game again replaces its events. player_id is null if the name on the
+// event couldn't be matched to the roster (player_name always keeps what was written).
+export const gameEvents = pgTable(
+  "game_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    period: integer("period").notNull(), // 1, 2, 3+ for overtime
+    periodLabel: text("period_label").notNull(),
+    remainingSec: integer("remaining_sec"),
+    elapsedSec: integer("elapsed_sec"),
+    paused: boolean("paused").notNull().default(false),
+    kind: text("kind").notNull(), // goal, assist, goalie_save, ... or "other"
+    label: text("label").notNull(),
+    playerId: uuid("player_id").references(() => players.id, { onDelete: "set null" }),
+    playerName: text("player_name").notNull(),
+  },
+  (t) => [index("game_events_game_idx").on(t.gameId, t.seq)],
+);
+
 /* ------------------------------------------------------------------ */
 /* Activity log                                                        */
 /* ------------------------------------------------------------------ */

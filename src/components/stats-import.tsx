@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { importGameStats } from "@/actions/stats";
-import { matchPlayer, parseStatText, statLabel, type RosterPlayer } from "@/lib/stat-import";
+import Link from "next/link";
+import { crossCheck, matchPlayer, normName, parseStatText, statLabel, withGoalieStats, type RosterPlayer } from "@/lib/stat-import";
 import { cn, formatDate } from "@/lib/utils";
 
 type Game = { id: string; date: string; opponent: string | null };
@@ -20,17 +21,21 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
   const [text, setText] = useState("");
   const [overrides, setOverrides] = useState<Record<number, string>>({}); // line -> playerId, "" = skip
   const [result, setResult] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [logLink, setLogLink] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const parsed = useMemo(() => parseStatText(text), [text]);
+  // Saves and Goals Allowed only exist in the play-by-play, so they are filled in from it.
+  const lines = useMemo(() => withGoalieStats(parsed.rows, parsed.events), [parsed]);
+  const warnings = useMemo(() => crossCheck(parsed.rows, parsed.events, parsed.score), [parsed]);
   const rows = useMemo(
     () =>
-      parsed.rows.map((r) => {
+      lines.map((r) => {
         const auto = matchPlayer(r, roster);
         const playerId = r.line in overrides ? overrides[r.line] : (auto?.playerId ?? "");
         return { ...r, auto, playerId };
       }),
-    [parsed, overrides, roster],
+    [lines, overrides, roster],
   );
 
   const toImport = rows.filter((r) => r.playerId);
@@ -48,7 +53,21 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
     setResult(null);
     startTransition(async () => {
       try {
-        const res = await importGameStats({ teamId, gameId, rows: [...merged].map(([playerId, stats]) => ({ playerId, stats })) });
+        // Each play is tied to the roster player its name was matched to (following any change made above).
+        const byName = new Map(rows.filter((r) => r.playerId).map((r) => [normName(r.name), r.playerId]));
+        const events = parsed.events.map((e) => ({
+          seq: e.seq,
+          period: e.period,
+          periodLabel: e.periodLabel,
+          remainingSec: e.remainingSec,
+          elapsedSec: e.elapsedSec,
+          paused: e.paused,
+          kind: e.kind,
+          label: e.label,
+          playerId: byName.get(normName(e.name)) ?? matchPlayer({ name: e.name, number: null }, roster)?.playerId ?? null,
+          playerName: e.name,
+        }));
+        const res = await importGameStats({ teamId, gameId, rows: [...merged].map(([playerId, stats]) => ({ playerId, stats })), events });
         if (!res.ok) return setResult({ kind: "error", text: res.error });
         const extras = [
           res.categoriesAdded.length > 0 ? `Added: ${res.categoriesAdded.join(", ")}.` : "",
@@ -56,7 +75,9 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
         ]
           .filter(Boolean)
           .join(" ");
-        setResult({ kind: "ok", text: `Imported stats for ${res.imported} player${res.imported === 1 ? "" : "s"}. ${extras}`.trim() });
+        const log = res.events > 0 ? ` Saved ${res.events} plays to the game log.` : "";
+        setResult({ kind: "ok", text: `Imported stats for ${res.imported} player${res.imported === 1 ? "" : "s"}.${log} ${extras}`.trim() });
+        if (res.events > 0) setLogLink(`/teams/${teamId}/stats/game/${gameId}`);
         setText("");
         setOverrides({});
       } catch {
@@ -106,7 +127,7 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
 
           <div>
             <label htmlFor="import-text" className="text-sm font-medium text-slate-700">
-              Stats (one player per line)
+              Stats from your stat keeper
             </label>
             <textarea
               id="import-text"
@@ -115,9 +136,10 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
                 setText(e.target.value);
                 setOverrides({});
                 setResult(null);
+                setLogLink(null);
               }}
               rows={6}
-              placeholder="#9 Lilly Brosseau: 2 G, 0 A, 3 SH, 1 GB, 1 DC, 0 CT, 0 TO"
+              placeholder="Paste the whole message from your stat keeper - box score and play-by-play."
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs"
             />
             <p className="mt-1 text-xs text-slate-500">
@@ -173,6 +195,21 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
               </table>
             </div>
           )}
+          {parsed.events.length > 0 && (
+            <p className="text-xs text-slate-600">
+              Found {parsed.events.length} plays in the play-by-play. They&apos;ll be saved as this game&apos;s log, and Saves and Goals Allowed are counted from them.
+            </p>
+          )}
+          {warnings.length > 0 && (
+            <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <p className="font-medium">The box score and play-by-play don&apos;t fully agree:</p>
+              <ul className="mt-1 list-disc pl-4">
+                {warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {parsed.unparsed.length > 0 && (
             <p className="text-xs text-amber-700">
               {parsed.unparsed.length} line{parsed.unparsed.length === 1 ? "" : "s"} couldn&apos;t be read and will be ignored: {parsed.unparsed.map((u) => u.text).join(" | ")}
@@ -183,6 +220,14 @@ export function StatsImport({ teamId, games, roster }: { teamId: string; games: 
           {result && (
             <p className={cn("text-sm", result.kind === "ok" ? "text-green-700" : "text-red-600")} role="status">
               {result.text}
+              {result.kind === "ok" && logLink && (
+                <>
+                  {" "}
+                  <Link href={logLink} className="font-medium underline">
+                    View the game log
+                  </Link>
+                </>
+              )}
             </p>
           )}
 

@@ -18,28 +18,27 @@ function num(value: string | undefined): number | null {
 
 export type PlayerRollup = {
   playerId: string;
-  /** Games in the filtered set where this player has at least one stat entered. */
+  /** Games in the filtered set where this player was marked Available on the game itself. */
   games: number;
   totals: Record<string, number>; // categoryId -> total
 };
 
+/** `availability` maps "gameId:playerId" -> the status set on that game ("Available", "Not Available", ...). */
 export function rollupPlayer(
   playerId: string,
   games: { id: string }[],
   categoryIds: string[],
   values: Record<string, string>,
+  availability: Record<string, string>,
 ): PlayerRollup {
   const totals: Record<string, number> = Object.fromEntries(categoryIds.map((c) => [c, 0]));
   let played = 0;
   for (const g of games) {
-    let any = false;
+    if (availability[`${g.id}:${playerId}`] === "Available") played++;
     for (const c of categoryIds) {
       const n = num(values[`${g.id}:${playerId}:${c}`]);
-      if (n === null) continue;
-      any = true;
-      totals[c] += n;
+      if (n !== null) totals[c] += n;
     }
-    if (any) played++;
   }
   return { playerId, games: played, totals };
 }

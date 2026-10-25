@@ -28,7 +28,7 @@ export default async function StatsSummaryPage({
   const games = filterGamesBySeason(sheet.games, season);
   const categoryIds = sheet.categories.map((c) => c.id);
   const rows = sheet.roster.map((p) => {
-    const r = rollupPlayer(p.id, games, categoryIds, sheet.values);
+    const r = rollupPlayer(p.id, games, categoryIds, sheet.values, sheet.availability);
     return { playerId: p.id, name: p.name, number: p.number, games: r.games, totals: r.totals };
   });
 
