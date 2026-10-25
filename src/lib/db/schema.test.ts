@@ -105,13 +105,18 @@ describe("AVAILABILITY_STATUSES", () => {
 });
 
 describe("DEFAULT_STAT_CATEGORIES", () => {
-  it("seeds the five basic categories from the original spec", () => {
+  it("seeds the original five categories, then the ones added for game-stats import", () => {
     expect(DEFAULT_STAT_CATEGORIES.map((c) => c.label)).toEqual([
       "Goals",
       "Assists",
       "Ground Balls",
       "Saves",
       "Forced Turnovers",
+      "Shots",
+      "Draw Controls",
+      "Caused Turnovers",
+      "Turnovers",
+      "Goals Allowed",
     ]);
   });
 

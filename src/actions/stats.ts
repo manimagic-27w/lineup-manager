@@ -1,10 +1,21 @@
 "use server";
 
 import { z } from "zod";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { statCategories, statValues, games, gamePlayers, players } from "@/lib/db/schema";
+import {
+  DEFAULT_STAT_CATEGORIES,
+  STAT_SET_VERSION,
+  STAT_V2_KEYS,
+  statCategories,
+  statValues,
+  games,
+  gamePlayers,
+  players,
+  teams,
+} from "@/lib/db/schema";
+import { STAT_CODES } from "@/lib/stat-import";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
@@ -149,4 +160,130 @@ export async function setStatValue(formData: FormData) {
 
   await broadcastTeamUpdate(parsed.teamId, "stats", parsed.gameId);
   revalidatePath(`/teams/${parsed.teamId}/stats`);
+}
+
+/** Adds any default categories a team's stats sheet is missing, once per team version: a team that
+ *  turned stats on before Shots / Draw Controls / Caused Turnovers / Turnovers / Goals Allowed
+ *  existed gets them on its next visit. Categories a coach removes afterwards stay removed. */
+export async function upgradeStatCategories(teamId: string) {
+  const { team } = await requireTeamAccess(teamId);
+  if (team.statsVersion >= STAT_SET_VERSION) return;
+  const existing = await db.select().from(statCategories).where(eq(statCategories.teamId, teamId)).orderBy(asc(statCategories.sortOrder));
+  if (existing.length > 0) {
+    await addMissingCategories(teamId, [...STAT_V2_KEYS], existing);
+  }
+  await db.update(teams).set({ statsVersion: STAT_SET_VERSION }).where(eq(teams.id, teamId));
+}
+
+type CategoryRow = typeof statCategories.$inferSelect;
+
+/** Inserts the default categories for `keys` that the team doesn't already have (matched by key or
+ *  by name, so a hand-made "Shots" counts). Returns every category the team has afterwards. */
+async function addMissingCategories(teamId: string, keys: string[], existing: CategoryRow[]): Promise<CategoryRow[]> {
+  const have = new Set(existing.flatMap((c) => [c.key, c.label.trim().toLowerCase()]));
+  let order = existing.length > 0 ? Math.max(...existing.map((c) => c.sortOrder)) + 1 : 0;
+  const toAdd = DEFAULT_STAT_CATEGORIES.filter((c) => keys.includes(c.key) && !have.has(c.key) && !have.has(c.label.toLowerCase())).map((c) => ({
+    teamId,
+    key: c.key,
+    label: c.label,
+    sortOrder: order++,
+  }));
+  if (toAdd.length === 0) return existing;
+  const inserted = await db.insert(statCategories).values(toAdd).returning();
+  return [...existing, ...inserted];
+}
+
+const importSchema = z.object({
+  teamId: z.string().uuid(),
+  gameId: z.string().uuid(),
+  rows: z
+    .array(z.object({ playerId: z.string().uuid(), stats: z.record(z.string(), z.number().int().min(0).max(999)) }))
+    .min(1)
+    .max(80),
+});
+
+/** Writes a parsed box score into one game's stats. Creates any missing categories, replaces the
+ *  numbers already entered for the imported stats, and skips players marked Not Available. */
+export async function importGameStats(input: z.input<typeof importSchema>): Promise<
+  { ok: true; imported: number; skippedUnavailable: string[]; categoriesAdded: string[] } | { ok: false; error: string }
+> {
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That import wasn't valid. Check the preview and try again." };
+  const { teamId, gameId, rows } = parsed.data;
+  const { userId } = await requireTeamAccess(teamId);
+
+  const [game] = await db.select({ id: games.id }).from(games).where(and(eq(games.id, gameId), eq(games.teamId, teamId))).limit(1);
+  if (!game) return { ok: false, error: "That game wasn't found on this team." };
+
+  const allowedKeys = new Set(Object.values(STAT_CODES));
+  const usedKeys = new Set<string>();
+  for (const r of rows) {
+    for (const k of Object.keys(r.stats)) {
+      if (!allowedKeys.has(k)) return { ok: false, error: `Unknown stat "${k}".` };
+      usedKeys.add(k);
+    }
+  }
+
+  // If a player appears twice, add the lines together so each cell is written once.
+  const merged = new Map<string, Record<string, number>>();
+  for (const r of rows) {
+    const acc = merged.get(r.playerId) ?? {};
+    for (const [k, v] of Object.entries(r.stats)) acc[k] = (acc[k] ?? 0) + v;
+    merged.set(r.playerId, acc);
+  }
+  const mergedRows = [...merged].map(([playerId, stats]) => ({ playerId, stats }));
+
+  const playerIds = [...new Set(rows.map((r) => r.playerId))];
+  const roster = await db
+    .select({ id: players.id, name: players.name, archivedAt: players.archivedAt, isGuest: players.isGuest })
+    .from(players)
+    .where(and(eq(players.teamId, teamId), inArray(players.id, playerIds)));
+  const valid = new Map(roster.filter((p) => !p.archivedAt && !p.isGuest).map((p) => [p.id, p.name]));
+  if (mergedRows.some((r) => !valid.has(r.playerId))) return { ok: false, error: "A player in this import isn't on the team's active roster." };
+
+  const availability = await db
+    .select({ playerId: gamePlayers.playerId, status: gamePlayers.status })
+    .from(gamePlayers)
+    .where(and(eq(gamePlayers.gameId, gameId), inArray(gamePlayers.playerId, playerIds)));
+  const unavailable = new Set(availability.filter((a) => a.status === "Not Available").map((a) => a.playerId));
+
+  const before = await db.select().from(statCategories).where(eq(statCategories.teamId, teamId)).orderBy(asc(statCategories.sortOrder));
+  const categories = await addMissingCategories(teamId, [...usedKeys], before);
+  const categoriesAdded = categories.filter((c) => !before.some((b) => b.id === c.id)).map((c) => c.label);
+  // A hand-made category with the same name counts as the default one.
+  const byKey = new Map<string, string>();
+  for (const def of DEFAULT_STAT_CATEGORIES) {
+    const hit = categories.find((c) => c.key === def.key) ?? categories.find((c) => c.label.trim().toLowerCase() === def.label.toLowerCase());
+    if (hit) byKey.set(def.key, hit.id);
+  }
+
+  const skippedUnavailable: string[] = [];
+  const values: (typeof statValues.$inferInsert)[] = [];
+  const done = new Set<string>();
+  for (const r of mergedRows) {
+    if (unavailable.has(r.playerId)) {
+      skippedUnavailable.push(valid.get(r.playerId)!);
+      continue;
+    }
+    done.add(r.playerId);
+    for (const [key, n] of Object.entries(r.stats)) {
+      const categoryId = byKey.get(key);
+      if (!categoryId) continue;
+      values.push({ gameId, playerId: r.playerId, categoryId, value: String(n), updatedBy: userId });
+    }
+  }
+  if (values.length > 0) {
+    await db
+      .insert(statValues)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [statValues.gameId, statValues.playerId, statValues.categoryId],
+        set: { value: sql`excluded.value`, updatedBy: userId, updatedAt: new Date() },
+      });
+  }
+
+  await logActivity({ teamId, actorUserId: userId, action: "stats_imported", details: `${done.size} players` });
+  await broadcastTeamUpdate(teamId, "stats", gameId);
+  revalidatePath(`/teams/${teamId}/stats`);
+  return { ok: true, imported: done.size, skippedUnavailable, categoriesAdded };
 }

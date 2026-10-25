@@ -4,7 +4,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES, TEAM_TYPES } from "@/lib/db/schema";
+import { teams, teamCoaches, statCategories, DEFAULT_STAT_CATEGORIES, STAT_SET_VERSION, TEAM_TYPES } from "@/lib/db/schema";
 import { requireOrgAdmin, requireOrgSession, requireTeamAccess } from "@/lib/auth";
 import { reconcileMyPendingAssignments } from "@/actions/coaches";
 import { logActivity } from "@/lib/activity";
@@ -168,6 +168,8 @@ export async function enableStatsForTeam(formData: FormData) {
       sortOrder: i,
     }))
   );
+
+  await db.update(teams).set({ statsVersion: STAT_SET_VERSION }).where(eq(teams.id, teamId));
 
   await logActivity({
     teamId,

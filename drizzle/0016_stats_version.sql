@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN IF NOT EXISTS "stats_version" integer DEFAULT 0 NOT NULL;

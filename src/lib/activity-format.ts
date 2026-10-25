@@ -252,6 +252,8 @@ export function describeActivity(action: string, details: string | null, refs: A
     }
     case "stats_enabled":
       return "turned on stats tracking";
+    case "stats_imported":
+      return d ? `imported game stats (${d})` : "imported game stats";
     case "stat_category_added":
       return d ? `added the stat category ${d}` : "added a stat category";
     case "stat_category_removed":

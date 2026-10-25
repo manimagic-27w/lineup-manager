@@ -183,7 +183,20 @@ export const DEFAULT_STAT_CATEGORIES = [
   { key: "gb", label: "Ground Balls" },
   { key: "saves", label: "Saves" },
   { key: "fto", label: "Forced Turnovers" },
+  // Added with the game-stats import (STAT_SET_VERSION 2); older teams get them lazily.
+  { key: "shots", label: "Shots" },
+  { key: "draw_controls", label: "Draw Controls" },
+  { key: "caused_turnovers", label: "Caused Turnovers" },
+  { key: "turnovers", label: "Turnovers" },
+  { key: "goals_allowed", label: "Goals Allowed" },
 ] as const;
+
+/** Bumped whenever DEFAULT_STAT_CATEGORIES gains categories. A team whose stats_version is lower
+ *  and that already has stats turned on gets the missing ones added once, then is marked current,
+ *  so a category a coach later removes is not brought back. */
+export const STAT_SET_VERSION = 2;
+/** The categories added in version 2 (what an older team is missing). */
+export const STAT_V2_KEYS = ["shots", "draw_controls", "caused_turnovers", "turnovers", "goals_allowed"] as const;
 
 /* ------------------------------------------------------------------ */
 /* Teams + coaches                                                     */
@@ -205,6 +218,7 @@ export const teams = pgTable("teams", {
   // coach turns it on, regenerates it (the old link stops working) or turns it off from the
   // Training tab. See training_logs below.
   trainingLogToken: text("training_log_token").unique(),
+  statsVersion: integer("stats_version").notNull().default(0), // see STAT_SET_VERSION
   parentApprovalToken: text("parent_approval_token").unique(), // public link for parents to approve their child's logged time
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id

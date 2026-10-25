@@ -88,6 +88,7 @@ export function StatsTable({
                         <span className="block h-7 rounded bg-slate-200" title="Not available for this game" />
                       ) : canEdit ? (
                         <input
+                          key={value}
                           type="number"
                           defaultValue={value}
                           onBlur={(e) => update(g.id, player.id, cat.id, e.target.value)}

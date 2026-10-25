@@ -1,4 +1,5 @@
-import { getStatSheet, addStatCategory, removeStatCategory } from "@/actions/stats";
+import { getStatSheet, addStatCategory, removeStatCategory, upgradeStatCategories } from "@/actions/stats";
+import { StatsImport } from "@/components/stats-import";
 import { enableStatsForTeam } from "@/actions/teams";
 import { requireTeamAccess } from "@/lib/auth";
 import { StatsTable } from "@/components/stats-table";
@@ -8,6 +9,7 @@ import { TeamRealtime } from "@/components/team-realtime";
 export default async function StatsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
   await requireTeamAccess(teamId);
+  await upgradeStatCategories(teamId);
   const sheet = await getStatSheet(teamId);
 
   if (sheet.categories.length === 0) {
@@ -15,8 +17,7 @@ export default async function StatsPage({ params }: { params: Promise<{ teamId: 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-16 text-center sm:px-6">
         <h1 className="text-xl font-semibold text-slate-900">Track stats for this team</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-          Turn on a stats sheet with the basics - Goals, Assists, Ground Balls, Saves, and
-          Forced Turnovers - one column per game, automatically blacked out for players who
+          Turn on a stats sheet with the basics - Goals, Assists, Shots, Ground Balls, Draw Controls, Caused Turnovers, Turnovers, Saves, Goals Allowed and Forced Turnovers - one column per game, automatically blacked out for players who
           were unavailable. You can add your own categories afterward.
         </p>
         <form action={enableStatsForTeam} className="mt-6 inline-block">
@@ -30,6 +31,12 @@ export default async function StatsPage({ params }: { params: Promise<{ teamId: 
   return (
     <div className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-8 sm:px-6">
       <TeamRealtime teamId={teamId} scopes={["stats", "availability"]} />
+
+      <StatsImport
+        teamId={teamId}
+        games={sheet.games.map((g) => ({ id: g.id, date: g.date, opponent: g.opponent }))}
+        roster={sheet.roster.map((p) => ({ id: p.id, name: p.name, number: p.number }))}
+      />
 
       <StatsTable
         teamId={teamId}
