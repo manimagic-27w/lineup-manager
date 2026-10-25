@@ -10,6 +10,7 @@ export function TeamNav({ teamId, showPractices = false }: { teamId: string; sho
     { href: `/teams/${teamId}/roster`, label: "Roster" },
     { href: `/teams/${teamId}/games`, label: "Games" },
     ...(showPractices ? [{ href: `/teams/${teamId}/practices`, label: "Practices" }] : []),
+    { href: `/teams/${teamId}/training`, label: "Training" },
     { href: `/teams/${teamId}/stats`, label: "Stats" },
     { href: `/teams/${teamId}/history`, label: "History" },
     { href: `/teams/${teamId}/activity`, label: "Activity" },

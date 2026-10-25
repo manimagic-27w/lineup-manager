@@ -20,6 +20,7 @@ import {
   boolean,
   primaryKey,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -200,6 +201,10 @@ export const teams = pgTable("teams", {
   // setting the first time an existing club (one that already has teams) is opened. Safe to
   // drop in a later cleanup migration.
   gender: text("gender").notNull().default("girls"),
+  // The secret in the team's public player-log link (/log/<token>). Null = the link is off. The
+  // coach turns it on, regenerates it (the old link stops working) or turns it off from the
+  // Training tab. See training_logs below.
+  trainingLogToken: text("training_log_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });
@@ -522,4 +527,34 @@ export const drills = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("drills_team_name_unique").on(t.teamId, t.name)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Player training log (time spent working outside of practice)        */
+/* ------------------------------------------------------------------ */
+
+export const TRAINING_KINDS = ["Wall Ball", "Shooting", "Dodging", "Private Training", "Other"] as const;
+export type TrainingKind = (typeof TRAINING_KINDS)[number];
+
+// One row per session a player logs on the public /log/<token> page - no sign-in, so there is no
+// user id here, just the player they picked. logDate is the day the work was done (the player picks
+// it; the weekday is derived from it).
+export const trainingLogs = pgTable(
+  "training_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    logDate: date("log_date").notNull(),
+    minutes: integer("minutes").notNull(),
+    kind: text("kind").notNull(),
+    note: text("note").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("training_logs_player_date_idx").on(t.playerId, t.logDate), index("training_logs_team_date_idx").on(t.teamId, t.logDate)],
 );

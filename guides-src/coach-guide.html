@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1 class="title">Coaches Guide to Lineup Manager</h1>
+<p class="byline">Oct 24, 2026 &middot; <span class="author">Jeffrey Haid</span></p>
+<p class="intro">This guide is for coaches. It walks a new coach through everything needed to use Lineup Manager, from accepting a club invite to building a game-day lineup in any format, recording final scores, grouping games into tournaments and seasons, reusing availability between games, adding guest players, adding substitutes, using the app on your phone and at fields with weak signal, planning practices, tracking players&rsquo; work outside of practice, tracking stats, and reviewing each player&rsquo;s start history.</p>
+<hr>
+
+<h2>Getting started</h2>
+<ul class="flat">
+  <li>Your club admin sends you an email invitation to join the team on Lineup Manager. Open it and click the invite link.</li>
+  <li>If you don&rsquo;t already have an account, you&rsquo;ll be asked to create one (email and password, or a Google sign-in, depending on what your club has enabled). If you already have an account, just sign in.</li>
+  <li>Once you&rsquo;re signed in and the invite is accepted, you&rsquo;re taken straight into the app.</li>
+  <li>If you belong to more than one club, you&rsquo;ll see a screen to pick which club to work in first &mdash; and afterward, your club&rsquo;s name at the top of the page becomes a dropdown so you can switch clubs anytime without going back to that screen. (If you only belong to one club, it just shows as a plain label &mdash; nothing to click.)</li>
+  <li>The app lives at <strong>lacrosselineupmanager.com</strong>. Bookmark it once you&rsquo;re in &mdash; you&rsquo;ll come back to it often, especially on game day.</li>
+  <li><strong>Put it on your phone like an app.</strong> Open <strong>Getting started</strong> (the link at the top of the page). On Android or in Chrome, tap <strong>Install app</strong>. On iPhone or iPad, open the site in Safari, tap the Share button (the square with an arrow), scroll down and tap <strong>Add to Home Screen</strong>, then Add. You&rsquo;ll get a Lineup Manager icon that opens full-screen, with no browser bars. The card disappears once the app is installed.</li>
+  <li>Each club is set up as either a <strong>girls</strong> club or a <strong>boys</strong> club. A club admin picks this once, when the club is first set up, and it applies to every team in the club (it decides how many starters a Field lineup has &mdash; see Choosing a game format). Coaches don&rsquo;t need to do anything.</li>
+</ul>
+
+<h2>Your dashboard</h2>
+<ul class="flat">
+  <li>After picking your club, you&rsquo;ll land on your team (or a list of teams, if you coach more than one &mdash; pick the one you want).</li>
+  <li>Across the top of each team&rsquo;s page is a row of tabs:
+    <ol>
+      <li>Roster &ndash; your full list of players</li>
+      <li>Games &ndash; the schedule and your win-loss record; open a game to set availability, build the lineup, enter the final score, assign a tournament, season and format, and link game film</li>
+      <li>Practices &ndash; practice plans, templates and a drill library (only appears if your club has the practice plans feature; see Practice plans)</li>
+      <li>Training &ndash; time your players log for wall ball and other work outside of practice, with a summary per player</li>
+      <li>Stats &ndash; game and season stats</li>
+      <li>History &ndash; each player&rsquo;s history of starts by position</li>
+      <li>Activity &ndash; a plain-English log of changes other coaches have made</li>
+      <li>Settings &ndash; team details, team type, and data export</li>
+    </ol>
+  </li>
+  <li>Everything below walks through each of those tabs in order.</li>
+</ul>
+
+<h2>Managing the roster</h2>
+<ul class="flat">
+  <li>Add players one at a time from the Roster tab: name, jersey number, position, grade and experience level.</li>
+  <li>Import a whole roster at once with a CSV file. Use columns <code>name,number,position,grade,experience</code>. Position accepts either the short form (A, M, D, G) or the full word (Attack, Midfield, Defense, Goalie) &mdash; both are recognized.</li>
+  <li>Importing is safe to re-run: if a name in the CSV matches an existing player, that player&rsquo;s info is updated rather than duplicated; new names are added as new players.</li>
+  <li>The Experience dropdown&rsquo;s options depend on your team&rsquo;s <strong>type</strong> &mdash; Travel or Rec &mdash; set from the Settings tab (or when the team is first created): a Travel team gets A/B/C squad levels, a Rec team gets Travel/Rec/New to track each player&rsquo;s background. Changing a team&rsquo;s type later never touches a player&rsquo;s already-saved Experience value.</li>
+  <li>To edit a player, open their row on the Roster tab and update their details directly.</li>
+  <li>Archive a player to hide them from the active roster while keeping their game history (useful for a player who&rsquo;s out for the season). Restore brings them back.</li>
+  <li>Delete removes a player for good. If a player already has stats or lineup history tied to them, the app automatically archives them instead, so that history isn&rsquo;t lost.</li>
+</ul>
+
+<h2>Guest players</h2>
+<ul class="flat">
+  <li>A guest is a player who isn&rsquo;t part of your core roster &ndash; a call-up from another team, a borrowed player, or a tournament fill-in. Guests live on their own guest roster, so they don&rsquo;t clutter your main roster and aren&rsquo;t added to every game automatically.</li>
+  <li>To add one, open the game and click <strong>+ Add guest</strong> at the top of the availability list. Either pick someone from your guest roster, or fill in a new guest&rsquo;s name (number, position, grade and experience are optional) and click Add guest.</li>
+  <li>A guest you add starts as Available and appears on that game&rsquo;s availability list under a &ldquo;Guests&rdquo; divider, below your core roster. They show up in the lineup dropdowns and on the printed lineup sheet tagged &ldquo;(guest)&rdquo;, and you set their availability and slot the same way as anyone else.</li>
+  <li>Guests are reusable. Next time, they&rsquo;re in the &ldquo;Pick from your guest roster&rdquo; list. If you type a name that matches a guest you already have, the app reuses that guest rather than creating a duplicate, so their history stays in one place. If the name matches someone on your core roster, the app tells you to set that player&rsquo;s availability instead.</li>
+  <li>Click the &#10005; next to a guest to take them off one game. Their spot in that game&rsquo;s lineup is cleared, but they stay on your guest roster for other games and keep their history from games they played.</li>
+  <li>Once you have at least one guest, a Guest roster section appears under the roster table on the Roster tab, where you can update a guest&rsquo;s details, Archive them (hides them from the Add guest list), Restore them, or delete them. As with regular players, a guest with game history is archived instead of deleted.</li>
+  <li>Guests don&rsquo;t appear on the Stats tab, which covers your core roster only.</li>
+  <li>If you use <em>Copy availability from another game</em>, any guests on the other game come along with their status.</li>
+</ul>
+
+<h2>Seasons and game film</h2>
+<ul class="flat">
+  <li>A season is just a label you create to group games under &ndash; like &ldquo;Fall 2026&rdquo; or &ldquo;Spring League.&rdquo; It has no dates of its own; you assign games to it yourself.</li>
+  <li>Create one from the Games tab, in the &ldquo;Seasons&rdquo; section near the bottom of the page &ndash; give it a name and click Add season.</li>
+  <li>Assign a game to a season either when you schedule it, or later from the game&rsquo;s own page (the Season dropdown next to Date and Opponent).</li>
+  <li>Once you have at least one season, a Season dropdown appears at the top of the Games tab so you can filter the schedule down to just that season, or switch back to &ldquo;All seasons.&rdquo;</li>
+  <li>Deleting a season never deletes its games &ndash; they just fall back to &ldquo;No season&rdquo; and stay right where they were.</li>
+  <li>Each game also has a Game film link field, right next to Season on the game&rsquo;s page. Paste any link &ndash; Hudl, YouTube, a shared Drive folder, whatever your club uses &ndash; and a &ldquo;Watch film&rdquo; button appears on that game&rsquo;s page, plus a small &ldquo;Film&rdquo; link right in the Games list.</li>
+</ul>
+
+<h2>Tournaments</h2>
+<ul class="flat">
+  <li>A tournament groups the games of one event &ndash; like &ldquo;Spring Classic&rdquo; &ndash; so they show together on your schedule. Like a season, it&rsquo;s just a label you create and assign yourself.</li>
+  <li>Create one from the Games tab, in the &ldquo;Tournaments&rdquo; section near the bottom: type a name and click Add tournament.</li>
+  <li>Assign a game to a tournament when you schedule it, or later from the game&rsquo;s own page (the Tournament dropdown, which appears once you&rsquo;ve created at least one tournament).</li>
+  <li>On the Games tab, each tournament shows as a heading with its games underneath, most recent tournament first; games with no tournament are listed below under &ldquo;Other games.&rdquo;</li>
+  <li>Deleting a tournament never deletes its games &ndash; they just become ungrouped.</li>
+  <li>A tournament weekend is where <em>Copy availability from another game</em> helps most: collect availability once, then import it into each of the other games (see Setting player availability).</li>
+</ul>
+
+<h2>Final scores and your record</h2>
+<ul class="flat">
+  <li>After a game, open it from the Games tab. The &ldquo;Final score&rdquo; card at the top lets you enter your score and the opponent&rsquo;s score, then click Save score. The game then shows a W, L or T badge with the score, both on its page and in the Games list.</li>
+  <li>Both scores are needed together. To remove a result, clear both boxes and save.</li>
+  <li><strong>Friendly games:</strong> tick &ldquo;Friendly&rdquo; for a scrimmage or exhibition &ndash; on the Final score card, or when you schedule the game. A friendly still shows its score and an amber Friendly badge, but it is left out of your record.</li>
+  <li>At the top of the Games tab, the Record line counts only games that have a final score and aren&rsquo;t friendlies (for example 5-2, or 5-2-1 if there are ties), and notes how many friendlies were left out. It follows the Season filter, so picking a season shows that season&rsquo;s record.</li>
+</ul>
+
+<h2>Setting player availability</h2>
+<ul class="flat">
+  <li>Open a game from the Games tab. On the right side of the game page is the availability list &ndash; every roster player with a status dropdown right next to their name.</li>
+  <li>Status options:
+    <ul>
+      <li>Available</li>
+      <li>Maybe</li>
+      <li>Not Available</li>
+      <li>No Response (the default until someone sets a status)</li>
+    </ul>
+  </li>
+  <li>Set each player&rsquo;s status as responses come in (by phone, text, email &mdash; however your club collects them). The status you choose is what drives the lineup dropdowns described next.</li>
+  <li><strong>Reusing availability from another game:</strong> at the top of the availability list is a &ldquo;Copy availability from another game&rdquo; box. Pick a game and click Import. Games in the same tournament are listed first, then your other games. Import only fills in players who are still at No Response, using the answer they gave for the other game &ndash; anyone you&rsquo;ve already set on this game keeps their status, and a No Response on the other game carries nothing over. It&rsquo;s safe to run more than once, it never changes your lineup, and it tells you how many players it updated.</li>
+</ul>
+
+<h2>Choosing a game format</h2>
+<ul class="flat">
+  <li>Every game has a <strong>Format</strong>, set when you schedule it and changeable anytime afterward from the game&rsquo;s own page, right next to Season:
+    <ul>
+      <li><strong>Field</strong> &ndash; the standard lineup, which depends on your club. A girls club starts 12: 4 Attack, 3 Midfield, 4 Defense, 1 Goalie. A boys club starts 10: 3 Attack, 3 Midfield, 3 Defense, 1 Goalie.</li>
+      <li><strong>Sixes</strong> &ndash; World Lacrosse&rsquo;s 6-a-side format: 5 field players plus a goalie, substituting on the fly, with no fixed Attack/Mid/Def positions &ndash; every field player is expected to play both ways.</li>
+      <li><strong>Sevens</strong> &ndash; 7-a-side: 2 Attack, 3 Midfield, 2 Defense, 1 Goalie.</li>
+    </ul>
+  </li>
+  <li>The lineup board (covered next) automatically shows the right set of slots for whichever Format the game is set to &ndash; nothing else to configure.</li>
+  <li>Changed a game&rsquo;s Format after already building its lineup? The old picks don&rsquo;t carry over to the new set of slots &ndash; just rebuild the lineup to match.</li>
+</ul>
+
+<h2>Building the game-day lineup</h2>
+<ul class="flat">
+  <li>The lineup board sits on the left side of the game page, above the availability list. For a Field or Sevens game it&rsquo;s grouped into Attack, Midfield, Defense and Goalie; for a Sixes game it&rsquo;s grouped into Field and Goalie instead, since Sixes has no fixed positions.</li>
+  <li>Each slot has a dropdown. Only players marked Available or Maybe show up as options &ndash; anyone Not Available or with No Response is left out, so you can&rsquo;t accidentally schedule someone who isn&rsquo;t coming.</li>
+  <li>Within a Field or Sevens slot&rsquo;s dropdown, players who actually play that position are listed first, followed by a separator and the next-best fallback positions (for example, an Attack slot lists Attack players first, then Midfield, then Defense, then Goalie). A Sixes field slot instead lists every eligible field player together, sorted Offense-leaning first, then Two-way, then Defense-leaning.</li>
+  <li>Each player is listed with their jersey number first (when they have one on file), then Name-Letter (the position letter: A, M, D or G) &ndash; e.g. &ldquo;#12 Jordan Reyes-A&rdquo; &ndash; so you can see who&rsquo;s who and their natural position even when they&rsquo;re filling in elsewhere.</li>
+  <li>For a Sixes game specifically, since there&rsquo;s no fixed Attack/Mid/Def, the board instead shows each available player&rsquo;s informal offense/defense &ldquo;leaning&rdquo; &ndash; Offense-leaning, Two-way, or Defense-leaning, derived from their roster Position &ndash; plus a quick composition summary above the board so you can see the mix at a glance. It&rsquo;s a guide, not a rule, since Sixes expects everyone to play both ways; a note also appears if more than 12 players are marked Available/Maybe, since that&rsquo;s the typical Sixes roster size.</li>
+  <li>A player who is Maybe and gets put into the lineup is highlighted yellow, as a reminder to confirm with them.</li>
+  <li>If a player who&rsquo;s already in the lineup has their status changed to Not Available or No Response, their name turns red on the board &ndash; they aren&rsquo;t automatically pulled out, so you notice and decide who to swap in.</li>
+  <li><strong>Print lineup sheet:</strong> prints the positions down the left &ndash; Attack, Midfield, Defense, Goalie, then the bench &ndash; with a large lined Notes area on the right for writing on the sideline. Any notes saved on the game are printed on the first lines.</li>
+</ul>
+
+<h2>Adding substitutes</h2>
+<ul class="flat">
+  <li>On a Field or Sevens game, there is a <strong>Subs</strong> switch just under the word Lineup on the game page. Turn it on to add sub spots below your starters: <strong>2 attack, 3 midfield and 2 defense</strong>. Turn it off and they go away.</li>
+  <li>The switch is per game, so you can use subs for one game and not the next. It isn&rsquo;t available for Sixes, which subs on the fly.</li>
+  <li>Sub spots work exactly like starting spots: the dropdowns list your Available and Maybe players, and Maybe players are highlighted yellow. Choose someone for a sub spot and they&rsquo;re removed from the Bench list.</li>
+  <li><strong>A starter can also be a sub.</strong> The sub dropdowns offer every Available or Maybe player, including players already in your starting lineup, so someone who starts at attack can be your first midfield sub. Starters are marked &ldquo;&ndash; starting&rdquo; in the sub list. A player can hold one starting spot and one sub spot, but not two of either.</li>
+  <li>Subs print on the lineup sheet in their own group under the starters, and they are included in the offline copy. Sub spots don&rsquo;t count as starts on the History tab.</li>
+  <li>When Subs is off, the sub spots disappear from the lineup board and the printed sheet, so look the lineup over after switching.</li>
+</ul>
+
+<h2>On a spotty connection</h2>
+<ul class="flat">
+  <li>Every change you make on game day &ndash; availability, a lineup slot &ndash; saves immediately and shows a small status right next to it: a pulsing dot while it&rsquo;s saving, a green check once it&rsquo;s saved, or a red Retry button if it didn&rsquo;t go through. Nothing ever saves silently, so you always know whether a pick actually took.</li>
+  <li><strong>Offline copy.</strong> Each time you open a team page with a signal, the app saves a copy of that team&rsquo;s upcoming games &ndash; lineups, subs, bench and availability &ndash; onto your phone. You&rsquo;ll see a line near the bottom of your team pages such as &ldquo;Offline copy saved 7:42 AM &middot; Save now.&rdquo; If your club has Practices, upcoming practice plans are saved too.</li>
+  <li>Before you head to a field with poor service, open the team once and tap <strong>Save now</strong> so the copy is fresh. With no signal, the app shows your saved copy automatically. It is read-only &ndash; you can see the lineup, bench and availability, but not change them &ndash; and it refreshes by itself when you&rsquo;re back online.</li>
+  <li>The copy lives on that phone only, and it is cleared when you sign out. Each device needs to have opened the team at least once while online. Changes made by other coaches after your last save won&rsquo;t appear until you reconnect.</li>
+  <li>If you lose signal while on a game page you already have open, an amber banner tells you you&rsquo;re offline and shows when it last synced. The printed lineup sheet is still the best backup of all &ndash; see Building the game-day lineup above.</li>
+</ul>
+
+<h2>Practice plans (premium feature)</h2>
+<ul class="flat">
+  <li>Practice plans are an optional feature that is turned on per club. If your club has it, you&rsquo;ll see a <strong>Practices</strong> tab between Games and Training. If you don&rsquo;t see it, ask your club admin to contact the Lineup Manager team about enabling it.</li>
+  <li>Plans are shared by the team&rsquo;s coaches and the club admins. Each plan has a title, an optional date, an optional start time, goals, tags, and an ordered list of drills. Each drill has a name, minutes and notes. With a start time set, the app works out the clock time each drill begins and the total length of practice.</li>
+  <li><strong>Drill library:</strong> click <strong>Save to library</strong> on any drill to reuse it later, then pick it with <strong>Add from library&hellip;</strong> in any other plan. The Drills view lets you edit or delete saved drills.</li>
+  <li><strong>Templates:</strong> on a finished plan, click <strong>Save as template</strong>. In the Templates view, open a template and click <strong>Start a plan from this</strong> to make a fresh, editable copy for a new date.</li>
+  <li><strong>Tags</strong> (such as Ground balls or Defense) are free-form with a few suggestions. Use them to filter the Plans, Templates and Drills views.</li>
+  <li>Click <strong>Print</strong> on a plan for a one-page practice sheet to take to the field. Upcoming plans are also in your offline copy.</li>
+</ul>
+
+<h2>Player training log</h2>
+<ul class="flat">
+  <li>The <strong>Training</strong> tab lets players record the work they do outside of practice &ndash; wall ball, shooting, dodging, private training or other &ndash; and gives you a summary of how much time each player is putting in.</li>
+  <li><strong>Turn it on:</strong> open the Training tab and click <strong>Turn on player log link</strong>. You get a secret link to your team&rsquo;s log page. Click <strong>Copy link</strong> and send it to your players or parents by text, email or your team app. Players need no account and no sign-in.</li>
+  <li><strong>What players do:</strong> they open the link, pick their name from the team list (shown as first name and last initial), then choose the day (today or any of the last two weeks), the type of work, the minutes (tap 15, 30, 45, 60 or 90, or type their own), and an optional note. Tap Save. Below the form they see their own entries from the last 30 days with this week&rsquo;s total, and can <strong>Edit</strong> or <strong>Delete</strong> any of them to fix a mistake. Players can add the page to their home screen like the app.</li>
+  <li><strong>Your summary:</strong> the Training tab shows the team&rsquo;s total time, how many players have logged, and a list of every player with their total, a breakdown by type, number of sessions and the last day they logged. Players with nothing logged are listed in grey at the bottom. Switch between <strong>This week</strong> (Monday to Sunday), <strong>Last 7 days</strong>, <strong>Last 30 days</strong> and <strong>All time</strong>, and tap a player to see each day&rsquo;s entries.</li>
+  <li><strong>Keep the link private.</strong> Anyone who has it can log time for any player on the team, so share it only with your team. If it spreads, click <strong>Make a new link</strong> (the old one stops working) or <strong>Turn off</strong>. Entries already logged are kept.</li>
+</ul>
+
+<h2>Game stats</h2>
+<ul class="flat">
+  <li>The Stats tab tracks player and team performance across games.</li>
+  <li>A player who was marked Not Available or had No Response for a given game is shown accordingly on that game&rsquo;s stats, so you don&rsquo;t end up logging stats for someone who wasn&rsquo;t there.</li>
+  <li>Use the Stats tab after a game to record player stats, or to review trends across the season. (The game&rsquo;s final score is entered on the game&rsquo;s own page &ndash; see Final scores and your record.)</li>
+</ul>
+
+<h2>Tracking start history</h2>
+<ul class="flat">
+  <li>The History tab shows, for every player, how many games they&rsquo;ve started at each position &ndash; Attack, Mid, Def, or Goalie &ndash; plus a fifth Sixes column for flexible field starts in Sixes-format games. (A Sevens game&rsquo;s starts count toward the normal four columns, same as Field.)</li>
+  <li>It&rsquo;s built automatically from the lineups you&rsquo;ve already set for each game, so there&rsquo;s nothing extra to fill in.</li>
+  <li>Click a player&rsquo;s row to expand a game-by-game breakdown: the date, opponent, and the exact slot they started in that game.</li>
+  <li>Archived players still show up here, since this is a historical record rather than a live roster.</li>
+  <li>Guest players are listed below your core roster, under a &ldquo;Guest players&rdquo; divider, with the same counts and game-by-game breakdown.</li>
+</ul>
+
+<h2>The activity log</h2>
+<ul class="flat">
+  <li>The Activity tab is a running log of changes made to the team, written as plain sentences that name the player and the game &ndash; for example &ldquo;Sam Coach put Jordan Reyes at Low Attack 1 for the game on Sat, Oct 3, 2026 vs Eagles.&rdquo; It covers players added, imported, archived or deleted; guests added to or removed from a game; availability updates and imports; lineup changes; final scores; tournaments; and coach assignments.</li>
+  <li>It&rsquo;s useful when more than one coach has access to the team, so everyone can see what&rsquo;s changed and who made the change.</li>
+</ul>
+
+<h2>Team settings and exporting data</h2>
+<ul class="flat">
+  <li>The Settings tab holds the team&rsquo;s basic details.</li>
+  <li>Team color: pick one of five colors &ndash; Red, Orange, Navy, Silver, or Green &ndash; from the Theme section. Any coach can change it, not just admins. It shows as a small swatch next to your team&rsquo;s name and a stripe across the top of your team&rsquo;s card.</li>
+  <li>Team type: Travel or Rec &ndash; controls which Experience options show on the Roster tab (see Managing the roster above). Any coach can change it, not just admins.</li>
+  <li>From Settings you can export your roster and stats as a CSV or XLSX file (guests included, marked in a Guest column) &ndash; handy for backups, league paperwork, or sharing with someone who doesn&rsquo;t have an account. The XLSX version&rsquo;s Games sheet includes each game&rsquo;s season, tournament, final score, friendly flag, and film link too.</li>
+  <li>Renaming a team, inviting coaches, assigning coaches to teams and other club-level tasks are handled by your club admin, who has a separate Admin Guide. Coaches only see the teams they&rsquo;ve been assigned to.</li>
+</ul>
+
+<h2>Quick reference</h2>
+<div class="qref-item"><span class="q">Didn&rsquo;t get an invite email?</span> Check spam/junk first, then ask your club admin to resend it.</div>
+<div class="qref-item"><span class="q">A player&rsquo;s position didn&rsquo;t import from your CSV?</span> Double check the position column uses one of: Attack/A, Mid/Midfield/M, Def/Defense/D, Goalie/G.</div>
+<div class="qref-item"><span class="q">Re-importing a CSV creates duplicate players instead of updating them?</span> Make sure the name in the CSV matches the existing player&rsquo;s name exactly (case and extra spaces are ignored, but a typo will create a new player).</div>
+<div class="qref-item"><span class="q">A player isn&rsquo;t showing up in a lineup dropdown?</span> They need to be marked Available or Maybe for that game first.</div>
+<div class="qref-item"><span class="q">A player shows no starts on the History tab?</span> They haven&rsquo;t held a lineup slot in any game yet &ndash; it fills in automatically as you build lineups, and includes games already played.</div>
+<div class="qref-item"><span class="q">Scheduled a game with the wrong Format, or need to switch formats mid-season?</span> Change it anytime from the game&rsquo;s own page, next to Season &ndash; just rebuild the lineup afterward, since the old picks don&rsquo;t carry over to the new slots.</div>
+<div class="qref-item"><span class="q">Don&rsquo;t see the Subs switch?</span> It is under the word Lineup on a Field or Sevens game&rsquo;s page &ndash; Sixes games don&rsquo;t have it. If the page looks out of date, refresh the browser.</div>
+<div class="qref-item"><span class="q">No Install app button?</span> On iPhone and iPad it only works from Safari: tap Share, then Add to Home Screen. On a computer, use Chrome or Edge and look for the install icon in the address bar.</div>
+<div class="qref-item"><span class="q">Going somewhere with no signal?</span> Open your team while online and tap <strong>Save now</strong> near the bottom of the page. With no signal, the app shows that saved copy (read-only). Print the lineup sheet as a backup.</div>
+<div class="qref-item"><span class="q">Players say the training log link doesn&rsquo;t work?</span> Open the Training tab. If you made a new link or turned it off, the old link stops working &ndash; copy the current link and send it again.</div>
+<div class="qref-item"><span class="q">A player is missing from the training log page?</span> The list is your active roster (not guests or archived players). Add or restore the player on the Roster tab.</div>
+<div class="qref-item"><span class="q">No Practices tab?</span> Practice plans are turned on per club. Ask your club admin about enabling it.</div>
+<div class="qref-item"><span class="q">Belong to more than one club and don&rsquo;t see a switcher?</span> It only appears once you actually have more than one membership &ndash; click your club&rsquo;s name at the top of the page.</div>
+<div class="qref-item"><span class="q">Want to reuse availability from another game?</span> Use &ldquo;Copy availability from another game&rdquo; at the top of the availability list &ndash; it only fills in players still at No Response, so nothing you&rsquo;ve already set is overwritten.</div>
+<div class="qref-item"><span class="q">Need a one-off player for a game who isn&rsquo;t on your roster?</span> Use <strong>+ Add guest</strong> at the top of that game&rsquo;s availability list. They stay off your main roster, are saved for reuse, and show in History under &ldquo;Guest players.&rdquo;</div>
+<div class="qref-item"><span class="q">A guest isn&rsquo;t in the &ldquo;Pick from your guest roster&rdquo; list?</span> They may already be on this game, or archived &ndash; restore them from the Guest roster section on the Roster tab.</div>
+<div class="qref-item"><span class="q">A game&rsquo;s score isn&rsquo;t showing in your record?</span> It needs both scores entered, and it can&rsquo;t be marked Friendly. Check the Final score card on the game&rsquo;s page.</div>
+<div class="qref-item"><span class="q">Deleted a tournament by mistake?</span> Its games aren&rsquo;t touched &ndash; they&rsquo;re just ungrouped. Create the tournament again and reassign the games from each game&rsquo;s page.</div>
+<div class="qref-item"><span class="q">Deleted a season by mistake, or just don&rsquo;t need it anymore?</span> Go ahead &ndash; its games aren&rsquo;t touched, they just show up as &ldquo;No season&rdquo; until you reassign them.</div>
+<div class="qref-item"><span class="q">Deleted a player by mistake?</span> If they had any game history, the app archives them instead of deleting &ndash; check the archived players and restore from there.</div>
+<div class="qref-item"><span class="q">Can&rsquo;t see a team, or can&rsquo;t get into the club?</span> Confirm you accepted the invite email and that a club admin has added you as a coach on that team.</div>
+
+</body>
+</html>
