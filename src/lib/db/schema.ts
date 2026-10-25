@@ -205,6 +205,7 @@ export const teams = pgTable("teams", {
   // coach turns it on, regenerates it (the old link stops working) or turns it off from the
   // Training tab. See training_logs below.
   trainingLogToken: text("training_log_token").unique(),
+  parentApprovalToken: text("parent_approval_token").unique(), // public link for parents to approve their child's logged time
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });
@@ -563,9 +564,9 @@ export const trainingLogs = pgTable(
 );
 
 // Per-player settings for the public training log: the 4-digit PIN that protects their entries
-// (stored only as a salted scrypt hash) and the parent's mobile number the "Text my parent" button
-// pre-fills. The app never sends a text itself - the number only fills in the player's own
-// Messages draft. A coach clearing pin_hash lets the player set a new PIN.
+// (stored only as a salted scrypt hash), the player's own mobile number and a different parent
+// mobile number. A parent proves who they are on the team's parent link by typing that number.
+// A coach clearing pin_hash lets the player set a new PIN.
 export const trainingProfiles = pgTable("training_profiles", {
   playerId: uuid("player_id")
     .primaryKey()
@@ -573,26 +574,10 @@ export const trainingProfiles = pgTable("training_profiles", {
   pinHash: text("pin_hash"),
   parentPhone: text("parent_phone"), // +1XXXXXXXXXX
   playerPhone: text("player_phone"), // +1XXXXXXXXXX; must differ from parentPhone
+  parentFailedAttempts: integer("parent_failed_attempts").notNull().default(0), // wrong parent-number tries on the parent link
+  parentLockedUntil: timestamp("parent_locked_until", { withTimezone: true }),
   failedAttempts: integer("failed_attempts").notNull().default(0),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// One approval link per player per day. A parent opening /approve/<token> sees that day's
-// entries and approves them all at once; entries added later the same day wait for the next approval.
-export const trainingApprovals = pgTable(
-  "training_approvals",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    token: text("token").notNull().unique(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
-    playerId: uuid("player_id")
-      .notNull()
-      .references(() => players.id, { onDelete: "cascade" }),
-    logDate: date("log_date").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("training_approvals_player_date").on(t.playerId, t.logDate)],
-);

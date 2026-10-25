@@ -4,7 +4,7 @@ import { z } from "zod";
 import { and, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { players, teams, trainingApprovals, trainingLogs, trainingProfiles } from "@/lib/db/schema";
+import { players, teams, trainingLogs, trainingProfiles } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { generateLogToken } from "@/lib/log-token";
 import { hashPin, isValidPin, MAX_PIN_ATTEMPTS, PIN_LOCK_MINUTES, verifyPin } from "@/lib/pin";
@@ -177,13 +177,12 @@ export async function updatePlayerPhone(
   return { ok: true, playerPhone: phone };
 }
 
-/** Unlocks a player's log: checks the PIN and returns their last 30 days plus, for each day that
- *  still has time waiting on a parent, the approval link to text. */
+/** Unlocks a player's log: checks the PIN and returns their last 30 days. */
 export async function listMyEntries(
   token: string,
   playerId: string,
   pin: string,
-): Promise<{ ok: true; entries: LogEntryDTO[]; approvalTokens: Record<string, string>; parentPhone: string | null; playerPhone: string | null } | Failure> {
+): Promise<{ ok: true; entries: LogEntryDTO[]; parentPhone: string | null; playerPhone: string | null } | Failure> {
   const found = await findLogPlayer(token, playerId);
   if (!found) return { ok: false, error: BAD_LINK };
   const check = await checkPin(found.playerId, pin);
@@ -196,23 +195,6 @@ export async function listMyEntries(
     .where(and(eq(trainingLogs.playerId, found.playerId), gte(trainingLogs.logDate, since)))
     .orderBy(desc(trainingLogs.logDate), desc(trainingLogs.createdAt));
 
-  // One approval link per day that still has unapproved time (created the first time it's needed).
-  const pendingDates = [...new Set(rows.filter((r) => !r.approvedAt).map((r) => r.logDate))];
-  const approvalTokens: Record<string, string> = {};
-  for (const date of pendingDates) {
-    await db
-      .insert(trainingApprovals)
-      .values({ token: generateLogToken(), teamId: found.team.id, playerId: found.playerId, logDate: date })
-      .onConflictDoNothing();
-  }
-  if (pendingDates.length > 0) {
-    const links = await db
-      .select({ logDate: trainingApprovals.logDate, token: trainingApprovals.token })
-      .from(trainingApprovals)
-      .where(and(eq(trainingApprovals.playerId, found.playerId), gte(trainingApprovals.logDate, since)));
-    for (const l of links) approvalTokens[l.logDate] = l.token;
-  }
-
   return {
     ok: true,
     entries: rows.map((r) => ({
@@ -224,7 +206,6 @@ export async function listMyEntries(
       note: r.note,
       approved: !!r.approvedAt,
     })),
-    approvalTokens,
     parentPhone: check.parentPhone,
     playerPhone: check.playerPhone,
   };
@@ -315,13 +296,20 @@ export async function deleteLogEntry(token: string, playerId: string, pin: strin
 // ---- Coach side (signed in, any coach on the team or a club admin) ----
 
 export type LogLinkMode = "enable" | "regenerate" | "disable";
+export type LogLinkKind = "players" | "parents";
 
-export async function setTrainingLogLink(teamId: string, mode: LogLinkMode) {
+/** Turns one of the team's two public links (players' log page, parents' approval page) on, off or
+ *  into a new one. */
+export async function setTrainingLogLink(teamId: string, mode: LogLinkMode, kind: LogLinkKind = "players") {
   const { team } = await requireTeamAccess(z.string().uuid().parse(teamId));
+  const existing = kind === "parents" ? team.parentApprovalToken : team.trainingLogToken;
   const token = mode === "disable" ? null : generateLogToken();
   // "enable" on a team that already has a link keeps the link people already have.
-  if (mode === "enable" && team.trainingLogToken) return;
-  await db.update(teams).set({ trainingLogToken: token }).where(eq(teams.id, team.id));
+  if (mode === "enable" && existing) return;
+  await db
+    .update(teams)
+    .set(kind === "parents" ? { parentApprovalToken: token } : { trainingLogToken: token })
+    .where(eq(teams.id, team.id));
   revalidatePath(`/teams/${team.id}/training`);
 }
 

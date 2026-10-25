@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 // /home and /demo are the public front page and demo (see src/app/(marketing)). Signed-out
 // visitors who open "/" are shown /home without the URL changing; signed-in users still get the
 // dashboard at "/".
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)", "/log(.*)", "/approve(.*)"]);
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)", "/log(.*)", "/parents(.*)"]);
 const isRootRoute = createRouteMatcher(["/"]);
 const isSelectOrgRoute = createRouteMatcher(["/select-org(.*)"]);
 // The platform admin page sits above all clubs, so it works without an active organization.

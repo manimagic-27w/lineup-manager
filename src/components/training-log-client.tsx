@@ -49,7 +49,6 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
   const [playerPhone, setPlayerPhone] = useState<string | null>(null);
   const [gateError, setGateError] = useState("");
   const [parentPhone, setParentPhone] = useState<string | null>(null);
-  const [approvalTokens, setApprovalTokens] = useState<Record<string, string>>({});
   const [editingPhone, setEditingPhone] = useState(false);
   const [today] = useState(localToday);
   const [entries, setEntries] = useState<LogEntryDTO[] | null>(null);
@@ -82,7 +81,6 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         return false;
       }
       setEntries(res.entries);
-      setApprovalTokens(res.approvalTokens);
       setParentPhone(res.parentPhone);
       setPlayerPhone(res.playerPhone);
       setLoadError("");
@@ -100,8 +98,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
       const res = await listMyEntries(token, id, thePin);
       if (res.ok) {
         setEntries(res.entries);
-        setApprovalTokens(res.approvalTokens);
-        setParentPhone(res.parentPhone);
+          setParentPhone(res.parentPhone);
         setPlayerPhone(res.playerPhone);
         setLoadError("");
       } else {
@@ -300,14 +297,6 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
     return [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [entries]);
 
-  function smsLink(day: string) {
-    const t = approvalTokens[day];
-    if (!t || !parentPhone) return null;
-    const url = `${window.location.origin}/approve/${t}`;
-    const body = `Hi! It's ${playerLabel}. Please approve my lacrosse training time for ${prettyDate(day)}: ${url}`;
-    return `sms:${parentPhone}?&body=${encodeURIComponent(body)}`;
-  }
-
   const inputCls = "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base";
   const pinCls = "mt-1 w-32 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-xl tracking-[0.4em]";
 
@@ -412,7 +401,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
                 className={inputCls}
               />
               <p className="mt-1 text-xs text-slate-500">
-                Your parent approves your time from a text link, so this must be a different phone from yours.
+                Your parent approves your time on the parent link by typing this number, so it must be a different phone from yours.
               </p>
             </div>
           )}
@@ -642,31 +631,21 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
                 </button>
               </form>
             )}
-            {entries && waitingDays.length === 0 ? (
+            {entries === null ? null : waitingDays.length === 0 ? (
               <p className="mt-3 text-sm text-green-700">Nothing waiting - all your time is approved.</p>
             ) : (
-              <ul className="mt-3 space-y-2">
-                {waitingDays.map(([day, mins]) => {
-                  const href = smsLink(day);
-                  return (
-                    <li key={day} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-3 py-2">
-                      <span className="text-sm text-slate-800">
-                        {prettyDate(day)} &middot; <strong>{formatMinutes(mins)}</strong> waiting
-                      </span>
-                      {href ? (
-                        <a href={href} className="shrink-0 rounded-md bg-brand-orange px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-orange-light">
-                          Text my parent
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-500">Add a parent number</span>
-                      )}
+              <>
+                <ul className="mt-3 space-y-2">
+                  {waitingDays.map(([day, mins]) => (
+                    <li key={day} className="rounded-md bg-amber-50 px-3 py-2 text-sm text-slate-800">
+                      {prettyDate(day)} &middot; <strong>{formatMinutes(mins)}</strong> waiting
                     </li>
-                  );
-                })}
-              </ul>
-            )}
-            {waitingDays.length > 0 && (
-              <p className="mt-2 text-xs text-slate-500">Tapping the button opens a text to your parent on your phone. Press send to deliver it.</p>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-slate-500">
+                  Ask your parent to open the <strong>parent link</strong> your coach shared, pick your name and approve. Once they do, this time counts.
+                </p>
+              </>
             )}
           </div>
 

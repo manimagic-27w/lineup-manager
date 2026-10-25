@@ -68,6 +68,7 @@ export default async function TrainingPage({
   for (const e of entries) entriesByPlayer.set(e.playerId, [...(entriesByPlayer.get(e.playerId) ?? []), e]);
 
   const url = team.trainingLogToken ? `${getAppUrl()}/log/${team.trainingLogToken}` : null;
+  const parentUrl = team.parentApprovalToken ? `${getAppUrl()}/parents/${team.parentApprovalToken}` : null;
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-8 sm:px-6">
@@ -78,7 +79,10 @@ export default async function TrainingPage({
         </p>
       </div>
 
-      <TrainingLogLink teamId={teamId} url={url} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TrainingLogLink teamId={teamId} url={url} />
+        <TrainingLogLink teamId={teamId} url={parentUrl} kind="parents" />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {SUMMARY_RANGES.map((r) => (
