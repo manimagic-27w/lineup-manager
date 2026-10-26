@@ -17,6 +17,7 @@ import {
   date,
   numeric,
   integer,
+  bigint,
   boolean,
   primaryKey,
   uniqueIndex,
@@ -448,6 +449,40 @@ export const gameEvents = pgTable(
     playerName: text("player_name").notNull(),
   },
   (t) => [index("game_events_game_idx").on(t.gameId, t.seq)],
+);
+
+// Game film a coach uploads for download, kept for 24 hours and then erased. The film is split in
+// the coach's browser into playable ~200 MB clips ("parts"), each stored as one object in R2.
+// expires_at is set when the upload finishes; after it the film can no longer be downloaded and
+// the objects are deleted (see src/lib/film-storage.ts).
+export const gameFilms = pgTable("game_films", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  gameId: uuid("game_id")
+    .notNull()
+    .references(() => games.id, { onDelete: "cascade" }),
+  teamId: uuid("team_id")
+    .notNull()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(), // the original file name, used to name the downloads
+  originalBytes: bigint("original_bytes", { mode: "number" }).notNull(),
+  status: text("status").notNull().default("uploading"), // "uploading" | "ready"
+  partCount: integer("part_count").notNull().default(0),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+});
+
+export const gameFilmParts = pgTable(
+  "game_film_parts",
+  {
+    filmId: uuid("film_id")
+      .notNull()
+      .references(() => gameFilms.id, { onDelete: "cascade" }),
+    partNo: integer("part_no").notNull(),
+    objectKey: text("object_key").notNull(),
+    bytes: bigint("bytes", { mode: "number" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.filmId, t.partNo] })],
 );
 
 /* ------------------------------------------------------------------ */

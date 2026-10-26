@@ -63,3 +63,21 @@ OLD_CLERK_SECRET_KEY=sk_test_xxx NEW_CLERK_SECRET_KEY=sk_live_xxx npm run migrat
 
 Order matters: do step 4 **before** step 5 (or within minutes of it), so there's no window where
 the live app is on production keys but the data still points at dev ids.
+
+## Game film storage (Cloudflare R2)
+Coaches upload a whole game (about 2 GB); the browser cuts it into ~200 MB clips and sends each one
+straight to an R2 bucket. Clips can be downloaded for 24 hours and are then erased. One-time setup:
+
+1. Cloudflare dashboard -> R2 -> **Create bucket** (e.g. `lineup-film`). Keep it private.
+2. Bucket -> Settings -> **CORS policy** -> add:
+   `[{"AllowedOrigins":["https://lacrosselineupmanager.com","http://localhost:3000"],"AllowedMethods":["PUT","GET"],"AllowedHeaders":["content-type"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]`
+3. Bucket -> Settings -> **Object lifecycle rules** -> add a rule: delete objects 1 day after upload
+   (a safety net; the app itself erases film at 24 hours).
+4. R2 -> **Manage API tokens** -> create a token with *Object Read & Write* limited to that bucket.
+   Note the Account ID, Access Key ID and Secret Access Key.
+5. Vercel (Production env vars; also `.env.local` for local testing):
+   `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `CRON_SECRET`
+   (any long random string - Vercel sends it to the daily cleanup job in `vercel.json`). Redeploy.
+6. Run `npm run db:push` for the `game_films` / `game_film_parts` tables.
+
+Until step 5 is done, the game page shows "Film upload isn't set up for this app yet."

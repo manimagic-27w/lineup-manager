@@ -20,6 +20,9 @@ import { SubmitButton } from "@/components/submit-button";
 import { TeamRealtime } from "@/components/team-realtime";
 import { GameDayCacheWriter } from "@/components/game-day-cache-writer";
 import { OfflineBanner } from "@/components/offline-banner";
+import { FilmPanel } from "@/components/film-panel";
+import { getGameFilmView } from "@/lib/film-storage";
+import { filmStorageConfigured } from "@/lib/r2";
 
 export default async function GameDayPage({
   params,
@@ -260,6 +263,8 @@ export default async function GameDayPage({
           </SubmitButton>
         </form>
       </section>
+
+      <FilmPanel teamId={teamId} gameId={gameId} configured={filmStorageConfigured()} film={await getGameFilmView(teamId, gameId)} />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
         <section>

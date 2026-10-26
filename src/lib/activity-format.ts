@@ -252,6 +252,10 @@ export function describeActivity(action: string, details: string | null, refs: A
     }
     case "stats_enabled":
       return "turned on stats tracking";
+    case "film_uploaded":
+      return d ? `uploaded game film (${d})` : "uploaded game film";
+    case "film_deleted":
+      return d ? `erased game film (${d})` : "erased game film";
     case "stats_imported":
       return d ? `imported game stats (${d})` : "imported game stats";
     case "stat_category_added":
