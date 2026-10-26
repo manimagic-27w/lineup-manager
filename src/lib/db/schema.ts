@@ -539,7 +539,10 @@ export const gamesRelations = relations(games, ({ one, many }) => ({
 
 // Paid add-ons a platform admin switches on per club (see /platform). A club without a row for a
 // feature does not have it. Add new premium features here and to club_features rows as needed.
-export const CLUB_FEATURES = [{ key: "practice_plans", label: "Practice plans" }] as const;
+export const CLUB_FEATURES = [
+  { key: "practice_plans", label: "Practice plans" },
+  { key: "game_film", label: "Game film download" },
+] as const;
 export type ClubFeatureKey = (typeof CLUB_FEATURES)[number]["key"];
 
 export const clubFeatures = pgTable(

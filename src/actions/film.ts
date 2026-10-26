@@ -6,10 +6,16 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { gameFilmParts, gameFilms, games } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
+import { requireTeamFeature } from "@/lib/features";
 import { logActivity } from "@/lib/activity";
 import { FILM_LIFETIME_HOURS, MAX_FILM_BYTES, MAX_PARTS, partFilename } from "@/lib/film-plan";
 import { eraseFilms, filmObjectKey } from "@/lib/film-storage";
 import { filmStorageConfigured, objectSize, presignDownload, presignUpload } from "@/lib/r2";
+
+// Game film is a premium feature (CLUB_FEATURES "game_film", switched on per club in the platform
+// portal): uploading and downloading go through requireTeamFeature. Erasing a film only needs team
+// access, so a coach can still clear one after the feature is switched off.
+const FEATURE = "game_film" as const;
 
 // Game film: a coach uploads a film (split into clips in the browser), any coach on the team can
 // download the clips for 24 hours, then it is erased. Every action checks the signed-in user has
@@ -43,7 +49,7 @@ export async function startFilmUpload(input: {
   if (!parsed.success) return { ok: false, error: "That file is too large or isn't valid. Films up to 4 GB are supported." };
   if (!filmStorageConfigured()) return { ok: false, error: NOT_SETUP };
   const v = parsed.data;
-  const { userId } = await requireTeamAccess(v.teamId);
+  const { userId } = await requireTeamFeature(v.teamId, FEATURE);
 
   const [game] = await db.select({ id: games.id }).from(games).where(and(eq(games.id, v.gameId), eq(games.teamId, v.teamId))).limit(1);
   if (!game) return { ok: false, error: "That game wasn't found on this team." };
@@ -63,7 +69,7 @@ export async function startFilmUpload(input: {
 export async function getPartUploadUrl(teamId: string, filmId: string, partNo: number): Promise<{ ok: true; url: string } | Failure> {
   const no = z.number().int().min(1).max(MAX_PARTS).safeParse(partNo);
   if (!no.success) return { ok: false, error: "Too many clips for one film." };
-  await requireTeamAccess(teamId);
+  await requireTeamFeature(teamId, FEATURE);
   const film = await findFilm(teamId, filmId);
   if (!film || film.status !== "uploading") return { ok: false, error: "This upload is no longer open. Start it again." };
   return { ok: true, url: await presignUpload(filmObjectKey(teamId, film.gameId, film.id, no.data)) };
@@ -73,7 +79,7 @@ export async function getPartUploadUrl(teamId: string, filmId: string, partNo: n
 export async function completePart(teamId: string, filmId: string, partNo: number): Promise<{ ok: true; bytes: number } | Failure> {
   const no = z.number().int().min(1).max(MAX_PARTS).safeParse(partNo);
   if (!no.success) return { ok: false, error: "Too many clips for one film." };
-  await requireTeamAccess(teamId);
+  await requireTeamFeature(teamId, FEATURE);
   const film = await findFilm(teamId, filmId);
   if (!film || film.status !== "uploading") return { ok: false, error: "This upload is no longer open. Start it again." };
   const key = filmObjectKey(teamId, film.gameId, film.id, no.data);
@@ -88,7 +94,7 @@ export async function completePart(teamId: string, filmId: string, partNo: numbe
 
 /** All clips are in: make the film downloadable and start its 24 hours. */
 export async function finishFilm(teamId: string, filmId: string, partCount: number): Promise<{ ok: true } | Failure> {
-  const { userId } = await requireTeamAccess(teamId);
+  const { userId } = await requireTeamFeature(teamId, FEATURE);
   const film = await findFilm(teamId, filmId);
   if (!film || film.status !== "uploading") return { ok: false, error: "This upload is no longer open. Start it again." };
   const parts = await db.select({ partNo: gameFilmParts.partNo }).from(gameFilmParts).where(eq(gameFilmParts.filmId, film.id)).orderBy(asc(gameFilmParts.partNo));
@@ -105,7 +111,7 @@ export async function finishFilm(teamId: string, filmId: string, partCount: numb
 
 /** A short-lived download link for one clip (never lasting past the film's 24 hours). */
 export async function getFilmDownloadUrl(teamId: string, filmId: string, partNo: number): Promise<{ ok: true; url: string } | Failure> {
-  await requireTeamAccess(teamId);
+  await requireTeamFeature(teamId, FEATURE);
   const film = await findFilm(teamId, filmId);
   if (!film || film.status !== "ready" || !film.expiresAt || film.expiresAt.getTime() <= Date.now()) {
     return { ok: false, error: "This film has expired and been erased." };
