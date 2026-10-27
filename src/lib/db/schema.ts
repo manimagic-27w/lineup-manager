@@ -541,9 +541,26 @@ export const gamesRelations = relations(games, ({ one, many }) => ({
 // feature does not have it. Add new premium features here and to club_features rows as needed.
 export const CLUB_FEATURES = [
   { key: "practice_plans", label: "Practice plans" },
-  { key: "game_film", label: "Game film download" },
 ] as const;
 export type ClubFeatureKey = (typeof CLUB_FEATURES)[number]["key"];
+
+// Paid add-ons a platform admin switches on per TEAM (see /platform, under each club's teams). A
+// team without a row for a feature does not have it, even if another team in its club does.
+export const TEAM_FEATURES = [{ key: "game_film", label: "Game film download" }] as const;
+export type TeamFeatureKey = (typeof TEAM_FEATURES)[number]["key"];
+
+export const teamFeatures = pgTable(
+  "team_features",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    feature: text("feature").notNull(), // a TEAM_FEATURES key
+    enabledAt: timestamp("enabled_at", { withTimezone: true }).notNull().defaultNow(),
+    enabledBy: text("enabled_by").notNull(), // Clerk user id of the platform admin
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.feature] })],
+);
 
 export const clubFeatures = pgTable(
   "club_features",

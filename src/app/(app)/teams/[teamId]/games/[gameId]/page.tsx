@@ -22,7 +22,7 @@ import { GameDayCacheWriter } from "@/components/game-day-cache-writer";
 import { OfflineBanner } from "@/components/offline-banner";
 import { FilmPanel } from "@/components/film-panel";
 import { getGameFilmView } from "@/lib/film-storage";
-import { clubHasFeature } from "@/lib/features";
+import { teamHasFeature } from "@/lib/features";
 import { filmStorageConfigured } from "@/lib/r2";
 
 export default async function GameDayPage({
@@ -31,7 +31,7 @@ export default async function GameDayPage({
   params: Promise<{ teamId: string; gameId: string }>;
 }) {
   const { teamId, gameId } = await params;
-  const { team, orgId } = await requireTeamAccess(teamId);
+  const { team } = await requireTeamAccess(teamId);
 
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
@@ -265,7 +265,7 @@ export default async function GameDayPage({
         </form>
       </section>
 
-      {(await clubHasFeature(orgId, "game_film")) && (
+      {(await teamHasFeature(teamId, "game_film")) && (
         <FilmPanel teamId={teamId} gameId={gameId} configured={filmStorageConfigured()} film={await getGameFilmView(teamId, gameId)} />
       )}
 

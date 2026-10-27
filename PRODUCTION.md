@@ -78,6 +78,7 @@ straight to an R2 bucket. Clips can be downloaded for 24 hours and are then eras
 5. Vercel (Production env vars; also `.env.local` for local testing):
    `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `CRON_SECRET`
    (any long random string - Vercel sends it to the daily cleanup job in `vercel.json`). Redeploy.
-6. Run `npm run db:push` for the `game_films` / `game_film_parts` tables.
+6. Run `npm run db:push` for the `game_films` / `game_film_parts` / `team_features` tables.
+7. Switch the feature on for a team: Platform admin → open the club's "Team premium" list → Turn on beside the team. (Game film is per team; Practice plans stay per club.)
 
 Until step 5 is done, the game page shows "Film upload isn't set up for this app yet."

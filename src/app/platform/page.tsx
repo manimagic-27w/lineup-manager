@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { count } from "drizzle-orm";
 import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
 import { SubmitButton } from "@/components/submit-button";
 import { OpenClubButton } from "@/components/open-club-button";
-import { createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation, setClubFeature } from "@/actions/platform";
+import { createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation, setClubFeature, setTeamFeature } from "@/actions/platform";
 import { db } from "@/lib/db";
-import { clubFeatures, clubSettings, teams, CLUB_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
+import { clubFeatures, clubSettings, teamFeatures, teams, CLUB_FEATURES, TEAM_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { isCurrentUserPlatformAdmin, requirePlatformAdmin } from "@/lib/platform";
 import { parsePlatformAdminIds } from "@/lib/platform-admin";
 
@@ -45,19 +44,30 @@ export default async function PlatformPage({
   const params = await searchParams;
   const clerk = await clerkClient();
 
-  const [{ data: orgs }, settings, teamCounts, featureRows] = await Promise.all([
+  const [{ data: orgs }, settings, teamRows, featureRows, teamFeatureRows] = await Promise.all([
     clerk.organizations.getOrganizationList({ limit: 100, orderBy: "name", includeMembersCount: true }),
     db.select().from(clubSettings),
-    db.select({ orgId: teams.orgId, n: count() }).from(teams).groupBy(teams.orgId),
+    db.select({ id: teams.id, orgId: teams.orgId, name: teams.name }).from(teams).orderBy(teams.name),
     db.select().from(clubFeatures),
+    db.select().from(teamFeatures),
   ]);
+  const teamsList = new Map<string, { id: string; name: string }[]>();
+  for (const t of teamRows) {
+    if (!teamsList.has(t.orgId)) teamsList.set(t.orgId, []);
+    teamsList.get(t.orgId)!.push({ id: t.id, name: t.name });
+  }
+  const featuresByTeam = new Map<string, Set<string>>();
+  for (const f of teamFeatureRows) {
+    if (!featuresByTeam.has(f.teamId)) featuresByTeam.set(f.teamId, new Set());
+    featuresByTeam.get(f.teamId)!.add(f.feature);
+  }
   const featuresByOrg = new Map<string, Set<string>>();
   for (const f of featureRows) {
     if (!featuresByOrg.has(f.orgId)) featuresByOrg.set(f.orgId, new Set());
     featuresByOrg.get(f.orgId)!.add(f.feature);
   }
   const genderByOrg = new Map(settings.map((s) => [s.orgId, s.gender]));
-  const teamsByOrg = new Map(teamCounts.map((t) => [t.orgId, t.n]));
+  const teamsByOrg = new Map([...teamsList].map(([orgId, list]) => [orgId, list.length]));
 
   const invitesByOrg = new Map<string, { id: string; email: string; role: string }[]>();
   await Promise.all(
@@ -197,6 +207,38 @@ export default async function PlatformPage({
                       );
                     })}
                   </div>
+
+                  {(teamsList.get(o.id)?.length ?? 0) > 0 && (
+                    <details className="rounded-md bg-slate-50 px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-medium text-slate-500">
+                        Team premium &ndash; {TEAM_FEATURES.map((f) => f.label).join(", ")}
+                        {" ("}
+                        {teamsList.get(o.id)!.filter((t) => featuresByTeam.has(t.id)).length} of {teamsList.get(o.id)!.length} teams on)
+                      </summary>
+                      <ul className="mt-2 divide-y divide-slate-200">
+                        {teamsList.get(o.id)!.map((t) =>
+                          TEAM_FEATURES.map((f) => {
+                            const on = featuresByTeam.get(t.id)?.has(f.key) ?? false;
+                            return (
+                              <li key={`${t.id}-${f.key}`} className="py-1.5">
+                                <form action={setTeamFeature} className="flex flex-wrap items-center gap-2">
+                                  <input type="hidden" name="teamId" value={t.id} />
+                                  <input type="hidden" name="feature" value={f.key} />
+                                  <input type="hidden" name="enabled" value={on ? "false" : "true"} />
+                                  <span className={on ? "text-sm font-medium text-slate-900" : "text-sm text-slate-500"}>
+                                    {t.name} &ndash; {f.label}: {on ? "on" : "off"}
+                                  </span>
+                                  <SubmitButton variant="secondary" pendingLabel="Saving…">
+                                    {on ? "Turn off" : "Turn on"}
+                                  </SubmitButton>
+                                </form>
+                              </li>
+                            );
+                          }),
+                        )}
+                      </ul>
+                    </details>
+                  )}
 
                   {invites.length > 0 && (
                     <ul className="space-y-1 rounded-md border border-dashed border-slate-300 p-2">

@@ -7,7 +7,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
 import { and, eq } from "drizzle-orm";
-import { clubFeatures, clubSettings, CLUB_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
+import { clubFeatures, clubSettings, teamFeatures, teams, CLUB_FEATURES, TEAM_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { requirePlatformAdmin } from "@/lib/platform";
 
 const GENDER_KEYS = TEAM_GENDERS.map((t) => t.key) as [string, ...string[]];
@@ -207,4 +207,36 @@ export async function setClubFeature(formData: FormData) {
   }
   revalidatePath("/platform");
   go("notice", `${label} ${enabled === "true" ? "enabled" : "disabled"}.`);
+}
+
+const TEAM_FEATURE_KEYS = TEAM_FEATURES.map((f) => f.key) as [string, ...string[]];
+const teamFeatureSchema = z.object({
+  teamId: z.string().uuid(),
+  feature: z.enum(TEAM_FEATURE_KEYS),
+  enabled: z.enum(["true", "false"]),
+});
+
+/** Switches a premium feature on or off for one team (game film). Turning it off hides the
+ *  feature for that team; existing uploads are still erased on schedule and nothing else is lost. */
+export async function setTeamFeature(formData: FormData) {
+  const { userId } = await requirePlatformAdmin();
+  const parsed = teamFeatureSchema.safeParse({
+    teamId: formData.get("teamId"),
+    feature: formData.get("feature"),
+    enabled: formData.get("enabled"),
+  });
+  if (!parsed.success) go("error", "Couldn't update that feature.");
+  const { teamId, feature, enabled } = parsed.data;
+  const label = TEAM_FEATURES.find((f) => f.key === feature)?.label ?? feature;
+
+  const [team] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, teamId)).limit(1);
+  if (!team) go("error", "That team no longer exists.");
+
+  if (enabled === "true") {
+    await db.insert(teamFeatures).values({ teamId, feature, enabledBy: userId }).onConflictDoNothing();
+  } else {
+    await db.delete(teamFeatures).where(and(eq(teamFeatures.teamId, teamId), eq(teamFeatures.feature, feature)));
+  }
+  revalidatePath("/platform");
+  go("notice", `${label} ${enabled === "true" ? "enabled" : "disabled"} for ${team.name}.`);
 }
