@@ -17,6 +17,7 @@ import {
   teams,
 } from "@/lib/db/schema";
 import { STAT_CODES } from "@/lib/stat-import";
+import { addMissingCategories } from "@/lib/stat-categories";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
@@ -176,24 +177,6 @@ export async function upgradeStatCategories(teamId: string) {
     await addMissingCategories(teamId, [...STAT_V2_KEYS], existing);
   }
   await db.update(teams).set({ statsVersion: STAT_SET_VERSION }).where(eq(teams.id, teamId));
-}
-
-type CategoryRow = typeof statCategories.$inferSelect;
-
-/** Inserts the default categories for `keys` that the team doesn't already have (matched by key or
- *  by name, so a hand-made "Shots" counts). Returns every category the team has afterwards. */
-async function addMissingCategories(teamId: string, keys: string[], existing: CategoryRow[]): Promise<CategoryRow[]> {
-  const have = new Set(existing.flatMap((c) => [c.key, c.label.trim().toLowerCase()]));
-  let order = existing.length > 0 ? Math.max(...existing.map((c) => c.sortOrder)) + 1 : 0;
-  const toAdd = DEFAULT_STAT_CATEGORIES.filter((c) => keys.includes(c.key) && !have.has(c.key) && !have.has(c.label.toLowerCase())).map((c) => ({
-    teamId,
-    key: c.key,
-    label: c.label,
-    sortOrder: order++,
-  }));
-  if (toAdd.length === 0) return existing;
-  const inserted = await db.insert(statCategories).values(toAdd).returning();
-  return [...existing, ...inserted];
 }
 
 const importSchema = z.object({

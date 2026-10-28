@@ -224,6 +224,13 @@ export const teams = pgTable("teams", {
   // Team setting: when true (the default) logged training time only counts once a parent approves
   // it. When false, time counts as soon as the player logs it and no phone numbers are asked for.
   requireParentApproval: boolean("require_parent_approval").notNull().default(true),
+  // The no-login stat keeper screen (/keep/<token>): a secret link plus a 4-digit keeper PIN (stored
+  // only as a scrypt hash). The link is off while the token is null. Wrong PINs are counted on the
+  // team and lock the keeper out for a while, like the player log.
+  statKeeperToken: text("stat_keeper_token").unique(),
+  statKeeperPinHash: text("stat_keeper_pin_hash"),
+  statKeeperFailedAttempts: integer("stat_keeper_failed_attempts").notNull().default(0),
+  statKeeperLockedUntil: timestamp("stat_keeper_locked_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });
@@ -450,6 +457,9 @@ export const gameEvents = pgTable(
     label: text("label").notNull(),
     playerId: uuid("player_id").references(() => players.id, { onDelete: "set null" }),
     playerName: text("player_name").notNull(),
+    // "import" for a pasted play-by-play, "keeper" for a tap on the live stat keeper screen (only
+    // those can be undone there).
+    source: text("source").notNull().default("import"),
   },
   (t) => [index("game_events_game_idx").on(t.gameId, t.seq)],
 );

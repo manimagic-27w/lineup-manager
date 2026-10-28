@@ -10,11 +10,14 @@ export function StatsSubnav({ teamId }: { teamId: string }) {
   const sheetHref = `/teams/${teamId}/stats/sheet`;
   const logsHref = `/teams/${teamId}/stats/games`;
   const onLogs = pathname.startsWith(logsHref) || pathname.startsWith(`/teams/${teamId}/stats/game/`);
+  const keeperHref = `/teams/${teamId}/stats/keeper`;
+  const onKeeper = pathname.startsWith(keeperHref);
   const onSheet = pathname.startsWith(sheetHref);
   const tabs = [
-    { href: `/teams/${teamId}/stats`, label: "Team summary", active: !onLogs && !onSheet },
+    { href: `/teams/${teamId}/stats`, label: "Team summary", active: !onLogs && !onSheet && !onKeeper },
     { href: logsHref, label: "Game logs", active: onLogs },
     { href: sheetHref, label: "Enter & import stats", active: onSheet },
+    { href: keeperHref, label: "Stat keeper", active: onKeeper },
   ];
   return (
     <div className="mx-auto flex w-full max-w-6xl gap-2 px-4 pt-6 sm:px-6 print:hidden">

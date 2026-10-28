@@ -5,11 +5,11 @@ import { NextResponse } from "next/server";
 // still works (deprecated, not removed) and this is what Clerk's Next.js SDK documents as of
 // this build, so we keep the familiar name here rather than fighting an unreleased rename.
 
-// /log/<token> is the public player training log (no sign-in; the secret link is the credential).
+// /keep/<token> is the public stat keeper screen (secret link + keeper PIN). /log/<token> is the public player training log (no sign-in; the secret link is the credential).
 // /home and /demo are the public front page and demo (see src/app/(marketing)). Signed-out
 // visitors who open "/" are shown /home without the URL changing; signed-in users still get the
 // dashboard at "/".
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)", "/log(.*)", "/parents(.*)", "/api/cron(.*)"]);
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)", "/home(.*)", "/demo(.*)", "/log(.*)", "/parents(.*)", "/keep(.*)", "/api/cron(.*)"]);
 const isRootRoute = createRouteMatcher(["/"]);
 const isSelectOrgRoute = createRouteMatcher(["/select-org(.*)"]);
 // The platform admin page sits above all clubs, so it works without an active organization.
