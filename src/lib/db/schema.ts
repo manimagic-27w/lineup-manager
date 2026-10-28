@@ -221,6 +221,9 @@ export const teams = pgTable("teams", {
   trainingLogToken: text("training_log_token").unique(),
   statsVersion: integer("stats_version").notNull().default(0), // see STAT_SET_VERSION
   parentApprovalToken: text("parent_approval_token").unique(), // public link for parents to approve their child's logged time
+  // Team setting: when true (the default) logged training time only counts once a parent approves
+  // it. When false, time counts as soon as the player logs it and no phone numbers are asked for.
+  requireParentApproval: boolean("require_parent_approval").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });

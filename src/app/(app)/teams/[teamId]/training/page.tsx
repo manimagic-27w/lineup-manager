@@ -7,6 +7,7 @@ import { listTeamLog, listTeamProfiles } from "@/actions/training-log";
 import { ResetPinButton } from "@/components/reset-pin-button";
 import { getAppUrl } from "@/lib/app-url";
 import { TrainingLogLink } from "@/components/training-log-link";
+import { ParentApprovalToggle } from "@/components/parent-approval-toggle";
 import {
   formatMinutes,
   lastFour,
@@ -67,6 +68,7 @@ export default async function TrainingPage({
   const entriesByPlayer = new Map<string, typeof entries>();
   for (const e of entries) entriesByPlayer.set(e.playerId, [...(entriesByPlayer.get(e.playerId) ?? []), e]);
 
+  const requireApproval = team.requireParentApproval;
   const url = team.trainingLogToken ? `${getAppUrl()}/log/${team.trainingLogToken}` : null;
   const parentUrl = team.parentApprovalToken ? `${getAppUrl()}/parents/${team.parentApprovalToken}` : null;
 
@@ -79,9 +81,11 @@ export default async function TrainingPage({
         </p>
       </div>
 
+      <ParentApprovalToggle teamId={teamId} required={requireApproval} />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <TrainingLogLink teamId={teamId} url={url} />
-        <TrainingLogLink teamId={teamId} url={parentUrl} kind="parents" />
+        {requireApproval && <TrainingLogLink teamId={teamId} url={parentUrl} kind="parents" />}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -102,14 +106,14 @@ export default async function TrainingPage({
       <div className="grid grid-cols-3 gap-3 text-center">
         <div className="rounded-lg border border-slate-200 bg-white p-3">
           <p className="text-2xl font-semibold text-slate-900">{formatMinutes(teamTotal)}</p>
-          <p className="text-xs text-slate-500">Team total (approved)</p>
+          <p className="text-xs text-slate-500">{requireApproval ? "Team total (approved)" : "Team total"}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-3">
           <p className="text-2xl font-semibold text-slate-900">
             {logged}
             <span className="text-base font-normal text-slate-400"> of {active.length}</span>
           </p>
-          <p className="text-xs text-slate-500">Players with approved time</p>
+          <p className="text-xs text-slate-500">{requireApproval ? "Players with approved time" : "Players who logged time"}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-3">
           <p className="text-2xl font-semibold text-slate-900">{logged > 0 ? formatMinutes(Math.round(teamTotal / logged)) : "-"}</p>
@@ -117,7 +121,7 @@ export default async function TrainingPage({
         </div>
       </div>
 
-      {pendingTotal > 0 && (
+      {requireApproval && pendingTotal > 0 && (
         <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <strong>{formatMinutes(pendingTotal)}</strong> more is logged but still waiting on a parent&apos;s approval. It isn&apos;t counted above yet.
         </p>
@@ -158,9 +162,14 @@ export default async function TrainingPage({
                   </summary>
                   <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
                     <span>
-                      PIN: {profileByPlayer.get(p.id)?.hasPin ? "set" : "not set yet"} &middot; Player phone:{" "}
-                      {profileByPlayer.get(p.id)?.playerPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.playerPhone!)}` : "not entered"} &middot; Parent phone:{" "}
-                      {profileByPlayer.get(p.id)?.parentPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.parentPhone!)}` : "not entered"}
+                      PIN: {profileByPlayer.get(p.id)?.hasPin ? "set" : "not set yet"}
+                      {requireApproval && (
+                        <>
+                          {" "}&middot; Player phone:{" "}
+                          {profileByPlayer.get(p.id)?.playerPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.playerPhone!)}` : "not entered"} &middot; Parent phone:{" "}
+                          {profileByPlayer.get(p.id)?.parentPhone ? `ending ${lastFour(profileByPlayer.get(p.id)!.parentPhone!)}` : "not entered"}
+                        </>
+                      )}
                     </span>
                     {profileByPlayer.get(p.id)?.hasPin && <ResetPinButton teamId={teamId} playerId={p.id} playerName={p.name} />}
                   </div>
@@ -174,7 +183,7 @@ export default async function TrainingPage({
                           </span>
                           <span className="font-medium text-slate-900">
                             {formatMinutes(e.minutes)}
-                            {!e.approvedAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Waiting</span>}
+                            {requireApproval && !e.approvedAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Waiting</span>}
                           </span>
                         </li>
                       ))}

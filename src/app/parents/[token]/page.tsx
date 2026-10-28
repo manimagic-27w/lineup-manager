@@ -24,7 +24,13 @@ export default async function ParentApprovalPage({ params }: { params: Promise<{
         <h1 className="mt-4 text-xl font-semibold text-slate-900">{team.name}</h1>
         <p className="mt-1 text-sm text-slate-600">Parents: approve the training time your child has logged.</p>
       </div>
-      <ParentApprovalClient token={token} roster={roster} />
+      {team.requireParentApproval ? (
+        <ParentApprovalClient token={token} roster={roster} />
+      ) : (
+        <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
+          This team isn&apos;t using parent approval, so there&apos;s nothing for you to approve. Your child&apos;s logged time counts automatically.
+        </p>
+      )}
     </div>
   );
 }

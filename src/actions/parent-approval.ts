@@ -23,6 +23,7 @@ async function verifyParent(token: string, playerId: string, phoneInput: string)
   if (!id.success) return { ok: false, error: BAD_LINK };
   const team = await getTeamByParentToken(token);
   if (!team) return { ok: false, error: BAD_LINK };
+  if (!team.requireParentApproval) return { ok: false, error: "This team isn't using parent approval, so there's nothing to approve." };
   const [player] = await db
     .select({ id: players.id, name: players.name, archivedAt: players.archivedAt, isGuest: players.isGuest })
     .from(players)

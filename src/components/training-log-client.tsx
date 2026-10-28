@@ -36,7 +36,17 @@ function prettyDate(value: string) {
 
 type Stage = "pick" | "checking" | "setup" | "pin" | "open";
 
-export function TrainingLogClient({ token, roster }: { token: string; roster: RosterOption[] }) {
+export function TrainingLogClient({
+  token,
+  roster,
+  requireApproval = true,
+}: {
+  token: string;
+  roster: RosterOption[];
+  /** Whether this team has parents approve logged time (otherwise no phone numbers are needed). */
+  requireApproval?: boolean;
+}) {
+  const [needsApproval, setNeedsApproval] = useState(requireApproval);
   const [playerId, setPlayerId] = useState("");
   const [stage, setStage] = useState<Stage>("pick");
   const [hasParentPhone, setHasParentPhone] = useState(false);
@@ -83,6 +93,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
       setEntries(res.entries);
       setParentPhone(res.parentPhone);
       setPlayerPhone(res.playerPhone);
+      setNeedsApproval(res.requireApproval);
       setLoadError("");
       setPin(thePin);
       setStage("open");
@@ -98,8 +109,9 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
       const res = await listMyEntries(token, id, thePin);
       if (res.ok) {
         setEntries(res.entries);
-          setParentPhone(res.parentPhone);
+        setParentPhone(res.parentPhone);
         setPlayerPhone(res.playerPhone);
+        setNeedsApproval(res.requireApproval);
         setLoadError("");
       } else {
         setLoadError(res.error);
@@ -121,6 +133,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         }
         setHasParentPhone(res.hasParentPhone);
         setHasPlayerPhone(res.hasPlayerPhone);
+        setNeedsApproval(res.requireApproval);
         setStage(res.hasPin ? "pin" : "setup");
       } catch {
         setGateError("Couldn't reach the server - check your signal and try again.");
@@ -368,7 +381,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
               />
             </div>
           </div>
-          {!hasPlayerPhone && (
+          {needsApproval && !hasPlayerPhone && (
             <div>
               <label htmlFor="own-phone" className="text-sm font-medium text-slate-700">
                 Your mobile number
@@ -385,7 +398,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
               />
             </div>
           )}
-          {!hasParentPhone && (
+          {needsApproval && !hasParentPhone && (
             <div>
               <label htmlFor="parent-phone" className="text-sm font-medium text-slate-700">
                 Parent&apos;s mobile number
@@ -445,7 +458,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         </form>
       )}
 
-      {playerId && stage === "open" && !playerPhone && (
+      {playerId && stage === "open" && needsApproval && !playerPhone && (
         <form onSubmit={savePhones} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold text-slate-900">One more thing: your mobile number</h2>
           <p className="text-sm text-slate-600">Add your own mobile number. It has to be different from your parent&apos;s number.</p>
@@ -476,7 +489,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
         </form>
       )}
 
-      {playerId && stage === "open" && !!playerPhone && (
+      {playerId && stage === "open" && (!needsApproval || !!playerPhone) && (
         <>
           <form ref={formRef} onSubmit={submit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
             <h2 className="text-base font-semibold text-slate-900">{editingId ? "Edit entry" : "Add time"}</h2>
@@ -593,6 +606,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
             </div>
           </form>
 
+          {needsApproval && (
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="text-base font-semibold text-slate-900">Parent approval</h2>
@@ -648,6 +662,7 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
               </>
             )}
           </div>
+          )}
 
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-baseline justify-between">
@@ -666,14 +681,16 @@ export function TrainingLogClient({ token, roster }: { token: string; roster: Ro
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900">
                         {formatMinutes(e.minutes)} &middot; {e.kind}{" "}
-                        <span
-                          className={cn(
-                            "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                            e.approved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800",
-                          )}
-                        >
-                          {e.approved ? "Approved" : "Waiting"}
-                        </span>
+                        {needsApproval && (
+                          <span
+                            className={cn(
+                              "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                              e.approved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800",
+                            )}
+                          >
+                            {e.approved ? "Approved" : "Waiting"}
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-slate-500">
                         {prettyDate(e.logDate)}

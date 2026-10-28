@@ -23,7 +23,7 @@ export default async function PlayerLogPage({ params }: { params: Promise<{ toke
         <h1 className="mt-4 text-xl font-semibold text-slate-900">{team.name}</h1>
         <p className="mt-1 text-sm text-slate-600">Log the time you put in outside of practice.</p>
       </div>
-      <TrainingLogClient token={token} roster={roster} />
+      <TrainingLogClient token={token} roster={roster} requireApproval={team.requireParentApproval} />
     </div>
   );
 }

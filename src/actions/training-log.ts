@@ -91,11 +91,17 @@ async function checkPin(playerId: string, pin: string): Promise<PinCheck> {
 export async function getPlayerAccess(
   token: string,
   playerId: string,
-): Promise<{ ok: true; hasPin: boolean; hasParentPhone: boolean; hasPlayerPhone: boolean } | Failure> {
+): Promise<{ ok: true; hasPin: boolean; hasParentPhone: boolean; hasPlayerPhone: boolean; requireApproval: boolean } | Failure> {
   const found = await findLogPlayer(token, playerId);
   if (!found) return { ok: false, error: BAD_LINK };
   const [profile] = await db.select().from(trainingProfiles).where(eq(trainingProfiles.playerId, found.playerId)).limit(1);
-  return { ok: true, hasPin: !!profile?.pinHash, hasParentPhone: !!profile?.parentPhone, hasPlayerPhone: !!profile?.playerPhone };
+  return {
+    ok: true,
+    hasPin: !!profile?.pinHash,
+    hasParentPhone: !!profile?.parentPhone,
+    hasPlayerPhone: !!profile?.playerPhone,
+    requireApproval: found.team.requireParentApproval,
+  };
 }
 
 /** First-time setup: a 4-digit PIN, plus a parent's mobile number if none is on file yet. */
@@ -123,9 +129,12 @@ export async function setupPlayerPin(input: {
     own = normalizePhone(input.playerPhone);
     if (!own) return { ok: false, error: "Enter your own 10-digit mobile number." };
   }
-  if (!own) return { ok: false, error: "Enter your own mobile number." };
-  if (!parent) return { ok: false, error: "Enter a mobile number for the parent who will approve your time." };
-  if (own === parent) return { ok: false, error: PHONES_MATCH };
+  // Phone numbers only matter when the team has parents approve time.
+  if (found.team.requireParentApproval) {
+    if (!own) return { ok: false, error: "Enter your own mobile number." };
+    if (!parent) return { ok: false, error: "Enter a mobile number for the parent who will approve your time." };
+    if (own === parent) return { ok: false, error: PHONES_MATCH };
+  }
 
   const saved = await db
     .insert(trainingProfiles)
@@ -182,7 +191,7 @@ export async function listMyEntries(
   token: string,
   playerId: string,
   pin: string,
-): Promise<{ ok: true; entries: LogEntryDTO[]; parentPhone: string | null; playerPhone: string | null } | Failure> {
+): Promise<{ ok: true; entries: LogEntryDTO[]; parentPhone: string | null; playerPhone: string | null; requireApproval: boolean } | Failure> {
   const found = await findLogPlayer(token, playerId);
   if (!found) return { ok: false, error: BAD_LINK };
   const check = await checkPin(found.playerId, pin);
@@ -208,6 +217,7 @@ export async function listMyEntries(
     })),
     parentPhone: check.parentPhone,
     playerPhone: check.playerPhone,
+    requireApproval: found.team.requireParentApproval,
   };
 }
 
@@ -222,8 +232,8 @@ const saveSchema = z.object({
   note: z.string().trim().max(140).default(""),
 });
 
-/** Adds a session, or changes an existing one when `entryId` is given. A changed entry goes back
- *  to waiting for a parent's approval. */
+/** Adds a session, or changes an existing one when `entryId` is given. When the team requires parent
+ *  approval, a changed entry goes back to waiting; otherwise time counts straight away. */
 export async function saveLogEntry(input: {
   token: string;
   playerId: string;
@@ -246,6 +256,9 @@ export async function saveLogEntry(input: {
   const check = await checkPin(found.playerId, v.pin);
   if (!check.ok) return check;
 
+  // A team that doesn't use parent approval counts time the moment it is logged.
+  const autoApproved = found.team.requireParentApproval ? null : new Date();
+
   // Cap sessions per player per day so the page can't be used to flood the log.
   const sameDay = and(eq(trainingLogs.playerId, found.playerId), eq(trainingLogs.logDate, v.date));
   const [{ count }] = await db
@@ -263,7 +276,7 @@ export async function saveLogEntry(input: {
     if (!existing || existing.logDate < addDays(today, -LOG_WINDOW_DAYS)) return { ok: false, error: "That entry can't be changed any more." };
     await db
       .update(trainingLogs)
-      .set({ logDate: v.date, minutes: v.minutes, kind: v.kind, note: v.note, approvedAt: null, updatedAt: new Date() })
+      .set({ logDate: v.date, minutes: v.minutes, kind: v.kind, note: v.note, approvedAt: autoApproved, updatedAt: new Date() })
       .where(eq(trainingLogs.id, v.entryId));
   } else {
     await db.insert(trainingLogs).values({
@@ -273,6 +286,7 @@ export async function saveLogEntry(input: {
       minutes: v.minutes,
       kind: v.kind,
       note: v.note,
+      approvedAt: autoApproved,
     });
   }
   revalidatePath(`/teams/${found.team.id}/training`);
@@ -310,6 +324,21 @@ export async function setTrainingLogLink(teamId: string, mode: LogLinkMode, kind
     .update(teams)
     .set(kind === "parents" ? { parentApprovalToken: token } : { trainingLogToken: token })
     .where(eq(teams.id, team.id));
+  revalidatePath(`/teams/${team.id}/training`);
+}
+
+/** Turns the team's parent-approval requirement on or off. Turning it off counts everything that is
+ *  waiting right now (there is no parent step any more); turning it on again only affects time
+ *  logged from then on. */
+export async function setParentApprovalRequired(teamId: string, required: boolean) {
+  const { team } = await requireTeamAccess(z.string().uuid().parse(teamId));
+  await db.update(teams).set({ requireParentApproval: required }).where(eq(teams.id, team.id));
+  if (!required) {
+    await db
+      .update(trainingLogs)
+      .set({ approvedAt: new Date() })
+      .where(and(eq(trainingLogs.teamId, team.id), isNull(trainingLogs.approvedAt)));
+  }
   revalidatePath(`/teams/${team.id}/training`);
 }
 

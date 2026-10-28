@@ -9,7 +9,7 @@ import { publicName } from "./training-log";
 export async function getTeamByLogToken(token: string) {
   if (!looksLikeLogToken(token)) return null;
   const [team] = await db
-    .select({ id: teams.id, name: teams.name, theme: teams.theme })
+    .select({ id: teams.id, name: teams.name, theme: teams.theme, requireParentApproval: teams.requireParentApproval })
     .from(teams)
     .where(eq(teams.trainingLogToken, token))
     .limit(1);
@@ -20,7 +20,7 @@ export async function getTeamByLogToken(token: string) {
 export async function getTeamByParentToken(token: string) {
   if (!looksLikeLogToken(token)) return null;
   const [team] = await db
-    .select({ id: teams.id, name: teams.name })
+    .select({ id: teams.id, name: teams.name, requireParentApproval: teams.requireParentApproval })
     .from(teams)
     .where(eq(teams.parentApprovalToken, token))
     .limit(1);
