@@ -1,0 +1,3 @@
+Lineup Manager - push test file
+If you can read this at /push-test.txt on the live site, the new laptop's push and the deploy both worked.
+Safe to delete this file and the "Deploy check" link on the Platform admin page.

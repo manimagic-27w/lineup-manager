@@ -286,6 +286,14 @@ export default async function PlatformPage({
             })}
           </ul>
         </section>
+
+        <p className="text-xs text-slate-500">
+          Deploy check:{" "}
+          <a href="/push-test.txt" target="_blank" rel="noopener noreferrer" className="font-medium text-brand-blue hover:underline">
+            push-test.txt
+          </a>{" "}
+          (a test file for confirming a push reached the live site).
+        </p>
       </div>
     </Shell>
   );
