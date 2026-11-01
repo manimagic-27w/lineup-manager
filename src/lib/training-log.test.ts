@@ -6,6 +6,7 @@ import {
   lastFour,
   normalizePhone,
   isLoggableDate,
+  isTrainingKind,
   parseRange,
   publicName,
   rangeStart,
@@ -122,5 +123,13 @@ describe("phone numbers", () => {
   it("formats for display", () => {
     expect(formatPhone("+17035550142")).toBe("(703) 555-0142");
     expect(lastFour("+17035550142")).toBe("0142");
+  });
+});
+
+describe("isTrainingKind", () => {
+  it("accepts Partner Passing and the existing types, and rejects anything else", () => {
+    for (const k of ["Wall Ball", "Partner Passing", "Shooting", "Dodging", "Private Training", "Other"]) expect(isTrainingKind(k)).toBe(true);
+    expect(isTrainingKind("partner passing")).toBe(false);
+    expect(isTrainingKind("Yoga")).toBe(false);
   });
 });

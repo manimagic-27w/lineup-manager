@@ -640,7 +640,7 @@ export const drills = pgTable(
 /* Player training log (time spent working outside of practice)        */
 /* ------------------------------------------------------------------ */
 
-export const TRAINING_KINDS = ["Wall Ball", "Shooting", "Dodging", "Private Training", "Other"] as const;
+export const TRAINING_KINDS = ["Wall Ball", "Partner Passing", "Shooting", "Dodging", "Private Training", "Other"] as const;
 export type TrainingKind = (typeof TRAINING_KINDS)[number];
 
 // One row per session a player logs on the public /log/<token> page - no sign-in, so there is no
