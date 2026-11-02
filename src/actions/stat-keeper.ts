@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { gameEvents, gamePlayers, games, players, statCategories, statValues, teams } from "@/lib/db/schema";
@@ -11,7 +11,7 @@ import { hashPin, isValidPin } from "@/lib/pin";
 import { openKeeper } from "@/lib/stat-keeper-server";
 import { addMissingCategories, categoryIdsByKey } from "@/lib/stat-categories";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
-import { KEEPER_ACTION_KEYS, KEEPER_STAT_KEYS, MAX_EVENTS_PER_GAME, keeperActionByKey, keeperActionByKind, tallyEvents } from "@/lib/stat-keeper";
+import { KEEPER_ACTION_KEYS, KEEPER_STAT_KEYS, MAX_EVENTS_PER_GAME, UNKNOWN_PLAYER_NAME, keeperActionByKey, keeperActionByKind, tallyEvents } from "@/lib/stat-keeper";
 
 // The first group of actions is PUBLIC: a stat keeper uses them from /keep/<token> without signing
 // in. The team's secret link plus the keeper PIN (checked on every call, locked after too many
@@ -110,7 +110,7 @@ const recordSchema = z.object({
   token: z.string(),
   pin: z.string(),
   gameId: z.string().uuid(),
-  playerId: z.string().uuid(),
+  playerId: z.string().uuid().optional(), // left out only for an assist from someone not known yet
   action: z.enum(KEEPER_ACTION_KEYS),
   id: z.string().uuid(), // made on the keeper's phone, so a retried tap is never counted twice
 });
@@ -124,21 +124,27 @@ export async function recordKeeperAction(input: z.input<typeof recordSchema>): P
   if (!access.ok) return access;
   const teamId = access.team.id;
   const action = keeperActionByKey(v.action)!;
+  // Only an assist may be saved without a player (the keeper didn't know who it was).
+  if (!v.playerId && action.key !== "assist") return { ok: false, error: "Pick a player first." };
 
   const [game] = await db.select({ id: games.id }).from(games).where(and(eq(games.id, v.gameId), eq(games.teamId, teamId))).limit(1);
   if (!game) return { ok: false, error: "That game wasn't found." };
-  const [player] = await db
-    .select({ id: players.id, name: players.name, archivedAt: players.archivedAt, isGuest: players.isGuest })
-    .from(players)
-    .where(and(eq(players.id, v.playerId), eq(players.teamId, teamId)))
-    .limit(1);
-  if (!player || player.archivedAt || player.isGuest) return { ok: false, error: "That player isn't on the active roster." };
-  const [status] = await db
-    .select({ status: gamePlayers.status })
-    .from(gamePlayers)
-    .where(and(eq(gamePlayers.gameId, game.id), eq(gamePlayers.playerId, player.id)))
-    .limit(1);
-  if (status?.status === "Not Available") return { ok: false, error: `${player.name} is marked Not Available for this game.` };
+  let player: { id: string; name: string } | null = null;
+  if (v.playerId) {
+    const [found] = await db
+      .select({ id: players.id, name: players.name, archivedAt: players.archivedAt, isGuest: players.isGuest })
+      .from(players)
+      .where(and(eq(players.id, v.playerId), eq(players.teamId, teamId)))
+      .limit(1);
+    if (!found || found.archivedAt || found.isGuest) return { ok: false, error: "That player isn't on the active roster." };
+    const [status] = await db
+      .select({ status: gamePlayers.status })
+      .from(gamePlayers)
+      .where(and(eq(gamePlayers.gameId, game.id), eq(gamePlayers.playerId, found.id)))
+      .limit(1);
+    if (status?.status === "Not Available") return { ok: false, error: `${found.name} is marked Not Available for this game.` };
+    player = { id: found.id, name: found.name };
+  }
 
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(gameEvents).where(eq(gameEvents.gameId, game.id));
   if (n >= MAX_EVENTS_PER_GAME) return { ok: false, error: "This game's log is full. Ask your coach to check it." };
@@ -162,13 +168,14 @@ export async function recordKeeperAction(input: z.input<typeof recordSchema>): P
         paused: false,
         kind: action.kind,
         label: action.label,
-        playerId: player.id,
-        playerName: player.name,
+        playerId: player?.id ?? null,
+        playerName: player?.name ?? UNKNOWN_PLAYER_NAME,
         source: "keeper",
       })
       .onConflictDoNothing()
       .returning({ id: gameEvents.id });
     if (inserted.length === 0) return; // this tap was already saved - don't count it twice
+    if (!player) return; // an assist with no player yet is only logged; it counts once a coach assigns it
     for (const categoryId of categoryIds) {
       await tx
         .insert(statValues)
@@ -226,6 +233,59 @@ export async function undoKeeperAction(input: z.input<typeof undoSchema>): Promi
 }
 
 // ---- Coach side (signed in, any coach on the team or a club admin) ----
+
+/** Gives a keeper-logged play that has no player yet (an assist the keeper didn't know) its player,
+ *  and counts it in that player's stats. */
+export async function assignEventPlayer(teamId: string, eventId: string, playerId: string): Promise<{ ok: true } | Failure> {
+  const ids = z.object({ teamId: z.string().uuid(), eventId: z.string().uuid(), playerId: z.string().uuid() }).safeParse({ teamId, eventId, playerId });
+  if (!ids.success) return { ok: false, error: "Pick a player." };
+  const { userId } = await requireTeamAccess(ids.data.teamId);
+
+  const [row] = await db
+    .select({ id: gameEvents.id, gameId: gameEvents.gameId, kind: gameEvents.kind, playerId: gameEvents.playerId, source: gameEvents.source })
+    .from(gameEvents)
+    .innerJoin(games, eq(games.id, gameEvents.gameId))
+    .where(and(eq(gameEvents.id, ids.data.eventId), eq(games.teamId, ids.data.teamId)))
+    .limit(1);
+  if (!row) return { ok: false, error: "That play wasn't found." };
+  if (row.playerId) return { ok: false, error: "That play already has a player." };
+  const action = row.source === "keeper" ? keeperActionByKind(row.kind) : null;
+  if (!action) return { ok: false, error: "Only plays from the stat keeper can be assigned here." };
+
+  const [player] = await db
+    .select({ id: players.id, name: players.name, archivedAt: players.archivedAt, isGuest: players.isGuest })
+    .from(players)
+    .where(and(eq(players.id, ids.data.playerId), eq(players.teamId, ids.data.teamId)))
+    .limit(1);
+  if (!player || player.archivedAt || player.isGuest) return { ok: false, error: "That player isn't on the active roster." };
+
+  const existing = await db.select().from(statCategories).where(eq(statCategories.teamId, ids.data.teamId));
+  if (existing.length === 0) return { ok: false, error: "Stats aren't turned on for this team yet." };
+  const catIds = categoryIdsByKey(await addMissingCategories(ids.data.teamId, [...action.stats], existing));
+  const categoryIds = action.stats.map((k) => catIds.get(k)).filter((x): x is string => !!x);
+
+  await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(gameEvents)
+      .set({ playerId: player.id, playerName: player.name })
+      .where(and(eq(gameEvents.id, row.id), isNull(gameEvents.playerId)))
+      .returning({ id: gameEvents.id });
+    if (updated.length === 0) return; // someone else just assigned it
+    for (const categoryId of categoryIds) {
+      await tx
+        .insert(statValues)
+        .values({ gameId: row.gameId, playerId: player.id, categoryId, value: "1", updatedBy: userId })
+        .onConflictDoUpdate({
+          target: [statValues.gameId, statValues.playerId, statValues.categoryId],
+          set: { value: sql`${statValues.value} + 1`, updatedBy: userId, updatedAt: new Date() },
+        });
+    }
+  });
+
+  await broadcastTeamUpdate(ids.data.teamId, "stats", row.gameId);
+  revalidatePath(`/teams/${ids.data.teamId}/stats`, "layout");
+  return { ok: true };
+}
 
 /** Turns the stat keeper link on with a keeper PIN (keeps the link if one already exists). */
 export async function enableStatKeeper(teamId: string, pin: string): Promise<{ ok: true } | Failure> {

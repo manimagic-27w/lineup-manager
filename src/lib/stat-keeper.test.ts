@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STAT_CATEGORIES } from "@/lib/db/schema";
-import { KEEPER_ACTIONS, KEEPER_STAT_KEYS, keeperActionByKey, keeperActionByKind, tallyEvents } from "./stat-keeper";
+import { KEEPER_ACTIONS, KEEPER_STAT_KEYS, UNKNOWN_PLAYER_NAME, keeperActionByKey, keeperActionByKind, tallyEvents } from "./stat-keeper";
 
 describe("keeper actions", () => {
   it("has unique keys and kinds", () => {
@@ -30,5 +30,12 @@ describe("tallyEvents", () => {
   it("counts our goals and goals allowed", () => {
     expect(tallyEvents([{ kind: "goal" }, { kind: "goal" }, { kind: "assist" }, { kind: "goal_allowed" }])).toEqual({ goals: 2, allowed: 1 });
     expect(tallyEvents([])).toEqual({ goals: 0, allowed: 0 });
+  });
+});
+
+describe("unknown assist placeholder", () => {
+  it("shows as #100 and is only used for assists", () => {
+    expect(UNKNOWN_PLAYER_NAME).toContain("#100");
+    expect(keeperActionByKey("assist")?.stats).toEqual(["assists"]);
   });
 });

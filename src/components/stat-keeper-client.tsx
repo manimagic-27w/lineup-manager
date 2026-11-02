@@ -10,11 +10,11 @@ import {
   type KeeperGameOption,
   type KeeperPlayer,
 } from "@/actions/stat-keeper";
-import { KEEPER_ACTIONS, type KeeperActionKey, type KeeperGroup } from "@/lib/stat-keeper";
+import { KEEPER_ACTIONS, UNKNOWN_PLAYER_NAME, type KeeperActionKey, type KeeperGroup } from "@/lib/stat-keeper";
 import { cn } from "@/lib/utils";
 
 type LocalEvent = KeeperEvent & { state: "saved" | "sending" };
-type QueueItem = { id: string; gameId: string; playerId: string; action: KeeperActionKey; kind: string; pin: string };
+type QueueItem = { id: string; gameId: string; playerId: string | null; action: KeeperActionKey; kind: string; pin: string };
 
 const GROUP_STYLE: Record<KeeperGroup, { idle: string; chosen: string }> = {
   offense: { idle: "border-green-300 bg-green-50 text-green-900", chosen: "border-green-700 bg-green-600 text-white" },
@@ -72,6 +72,8 @@ export function StatKeeperClient({ token, teamName }: { token: string; teamName:
   const [playerId, setPlayerId] = useState("");
   const [action, setAction] = useState<KeeperActionKey | "">("");
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // After a goal is committed: ask whether there was an assist (step "ask"), then who (step "pick").
+  const [assist, setAssist] = useState<{ scorerId: string; step: "ask" | "pick" } | null>(null);
   const [offline, setOffline] = useState(false);
   const [unsaved, setUnsaved] = useState(0);
 
@@ -182,7 +184,7 @@ export function StatKeeperClient({ token, teamName }: { token: string; teamName:
         const item = queue.current[0];
         let res: Awaited<ReturnType<typeof recordKeeperAction>>;
         try {
-          res = await recordKeeperAction({ token, pin: item.pin, gameId: item.gameId, playerId: item.playerId, action: item.action, id: item.id });
+          res = await recordKeeperAction({ token, pin: item.pin, gameId: item.gameId, playerId: item.playerId ?? undefined, action: item.action, id: item.id });
         } catch {
           setOffline(true);
           await new Promise((r) => setTimeout(r, 3000));
@@ -232,18 +234,45 @@ export function StatKeeperClient({ token, teamName }: { token: string; teamName:
     setStage("games");
   }
 
+  /** Puts one play on screen right away and in the send queue. `player` is null only for an assist
+   *  from someone the keeper doesn't know yet. */
+  function enqueue(actionKey: KeeperActionKey, player: KeeperPlayer | null) {
+    const act = KEEPER_ACTIONS.find((a) => a.key === actionKey);
+    if (!act || !gameId) return;
+    const id = uuid();
+    setEvents((prev) =>
+      [{ id, seq: Date.now(), kind: act.kind, label: act.label, playerName: player?.name ?? UNKNOWN_PLAYER_NAME, source: "keeper", state: "sending" as const }, ...prev].slice(0, 12),
+    );
+    adjustTally(act.kind, 1);
+    queue.current.push({ id, gameId, playerId: player?.id ?? null, action: act.key, kind: act.kind, pin });
+    setUnsaved(queue.current.length);
+  }
+
   function commit() {
     const player = roster.find((p) => p.id === playerId);
     const act = KEEPER_ACTIONS.find((a) => a.key === action);
     if (!player || !act || !gameId) return;
-    const id = uuid();
-    setEvents((prev) =>
-      [{ id, seq: Date.now(), kind: act.kind, label: act.label, playerName: player.name, source: "keeper", state: "sending" as const }, ...prev].slice(0, 12),
-    );
-    adjustTally(act.kind, 1);
-    queue.current.push({ id, gameId, playerId: player.id, action: act.key, kind: act.kind, pin });
-    setUnsaved(queue.current.length);
     setNotice(null);
+    if (act.key === "goal") {
+      // Nothing is saved until the keeper answers the assist question.
+      setAssist({ scorerId: player.id, step: "ask" });
+      return;
+    }
+    enqueue(act.key, player);
+    setPlayerId("");
+    setAction("");
+    void flush();
+  }
+
+  /** Finishes a goal: saves it, plus the assist if there was one ("unknown" saves it as #100). */
+  function finishGoal(who: "none" | "unknown" | KeeperPlayer) {
+    if (!assist) return;
+    const scorer = roster.find((p) => p.id === assist.scorerId);
+    if (!scorer) return setAssist(null);
+    enqueue("goal", scorer);
+    if (who === "unknown") enqueue("assist", null);
+    else if (who !== "none") enqueue("assist", who);
+    setAssist(null);
     setPlayerId("");
     setAction("");
     void flush();
@@ -429,6 +458,64 @@ export function StatKeeperClient({ token, teamName }: { token: string; teamName:
           </ul>
         )}
       </section>
+
+      {assist && (
+        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true" aria-label="Assist on this goal?">
+          <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl">
+            {(() => {
+              const scorer = roster.find((p) => p.id === assist.scorerId);
+              const scorerName = scorer ? `${scorer.number ? `#${scorer.number} ` : ""}${scorer.name}` : "this player";
+              if (assist.step === "ask") {
+                return (
+                  <>
+                    <h2 className="text-lg font-bold text-slate-900">Goal: {scorerName}</h2>
+                    <p className="mt-1 text-base text-slate-700">Was there an assist?</p>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => finishGoal("none")} className="min-h-14 rounded-md border border-slate-300 bg-white px-3 py-3 text-lg font-semibold text-slate-900 hover:bg-slate-50">
+                        No
+                      </button>
+                      <button type="button" onClick={() => setAssist({ ...assist, step: "pick" })} className="min-h-14 rounded-md bg-green-600 px-3 py-3 text-lg font-semibold text-white hover:bg-green-700">
+                        Yes
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => setAssist(null)} className="mt-3 w-full text-sm font-medium text-slate-500 hover:underline">
+                      Cancel (don&apos;t save this goal)
+                    </button>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <h2 className="text-lg font-bold text-slate-900">Who got the assist?</h2>
+                  <p className="mt-1 text-sm text-slate-600">Goal by {scorerName}.</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {roster
+                      .filter((p) => p.id !== assist.scorerId)
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => finishGoal(p)}
+                          className="flex min-h-16 flex-col items-center justify-center rounded-md border border-slate-300 bg-white px-1 py-2 text-center text-slate-900 hover:bg-slate-50"
+                        >
+                          <span className="text-xl font-bold leading-none">{p.number ? `#${p.number}` : "–"}</span>
+                          <span className="mt-1 line-clamp-2 text-xs leading-tight">{p.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                  <button type="button" onClick={() => finishGoal("unknown")} className="mt-3 w-full rounded-md border border-amber-400 bg-amber-50 px-3 py-3 text-base font-semibold text-amber-900 hover:bg-amber-100">
+                    Don&apos;t know who (save as #100)
+                  </button>
+                  <p className="mt-1 text-xs text-slate-500">Your coach can fill in the player later on the game log.</p>
+                  <button type="button" onClick={() => setAssist({ ...assist, step: "ask" })} className="mt-3 w-full text-sm font-medium text-slate-500 hover:underline">
+                    Back
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto max-w-lg">

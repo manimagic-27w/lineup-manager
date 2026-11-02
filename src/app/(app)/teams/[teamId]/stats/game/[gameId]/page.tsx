@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { gameEvents } from "@/lib/db/schema";
+import { gameEvents, players } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
 import { getGameForTeam } from "@/lib/game-events";
 import { formatClock, summarizePeriods } from "@/lib/stat-import";
 import { TeamRealtime } from "@/components/team-realtime";
+import { AssignEventPlayer } from "@/components/assign-event-player";
 import { cn, formatDate } from "@/lib/utils";
 
 export default async function GameLogPage({ params }: { params: Promise<{ teamId: string; gameId: string }> }) {
@@ -15,6 +16,10 @@ export default async function GameLogPage({ params }: { params: Promise<{ teamId
   const game = await getGameForTeam(teamId, gameId);
   if (!game) notFound();
   const events = await db.select().from(gameEvents).where(eq(gameEvents.gameId, gameId)).orderBy(asc(gameEvents.seq));
+  const needsPlayer = events.some((e) => e.playerId === null && e.source === "keeper");
+  const roster = needsPlayer
+    ? (await db.select({ id: players.id, name: players.name, number: players.number }).from(players).where(and(eq(players.teamId, teamId), eq(players.isGuest, false), isNull(players.archivedAt)))).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
   const periods = summarizePeriods(events);
   const goalsFor = periods.reduce((n, p) => n + p.goalsFor, 0);
   const goalsAgainst = periods.reduce((n, p) => n + p.goalsAgainst, 0);
@@ -76,7 +81,7 @@ export default async function GameLogPage({ params }: { params: Promise<{ teamId
                   .map((e) => (
                     <li key={e.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                       <span className="w-16 shrink-0 tabular-nums text-slate-500" title={e.paused ? "Logged while the clock was stopped" : undefined}>
-                        {formatClock(e.remainingSec)}
+                        {e.remainingSec === null ? "–" : formatClock(e.remainingSec)}
                         {e.paused ? " ⏸" : ""}
                       </span>
                       <span
@@ -93,6 +98,11 @@ export default async function GameLogPage({ params }: { params: Promise<{ teamId
                         <Link href={`/teams/${teamId}/stats/player/${e.playerId}`} className="text-brand-blue hover:underline">
                           {e.playerName}
                         </Link>
+                      ) : e.source === "keeper" ? (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{e.playerName}</span>
+                          <AssignEventPlayer teamId={teamId} eventId={e.id} roster={roster} />
+                        </span>
                       ) : (
                         <span className="text-slate-600">{e.playerName}</span>
                       )}

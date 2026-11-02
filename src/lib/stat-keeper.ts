@@ -30,6 +30,10 @@ export function keeperActionByKind(kind: string) {
 /** Every stat key the keeper can write (so the team's categories exist before the first tap). */
 export const KEEPER_STAT_KEYS = [...new Set(KEEPER_ACTIONS.flatMap((a) => a.stats))];
 
+/** An assist whose player isn't known yet is saved with no player and this name (shown as #100). A
+ *  coach assigns the real player later on the game log; the assist only counts in the stats then. */
+export const UNKNOWN_PLAYER_NAME = "Unknown (#100)";
+
 /** Most plays one game's log may hold, so a stuck button can't fill the database. */
 export const MAX_EVENTS_PER_GAME = 1500;
 
