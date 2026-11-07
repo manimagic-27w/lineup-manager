@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LINEUP_SLOTS, fieldFormatLabel, formatAllowsSubs, isSubSlotKey, slotKeysFor, slotsFor } from "./lineup-slots";
+import { ALL_LINEUP_SLOTS, clampExtraMids, fieldFormatLabel, formatAllowsExtraMids, formatAllowsSubs, isSubSlotKey, lastExtraMidKey, slotKeysFor, slotsFor } from "./lineup-slots";
 
 const count = (slots: readonly { unit: string }[], unit: string) => slots.filter((s) => s.unit === unit).length;
 
@@ -81,5 +81,49 @@ describe("isSubSlotKey", () => {
 
   it("matches the 'X' prefix the database's one_sub_slot_per_player index relies on", () => {
     for (const s of ALL_LINEUP_SLOTS) expect(s.key.startsWith("X")).toBe(!!s.sub);
+  });
+});
+
+describe("extra midfield lines", () => {
+  const keys = (format: string, gender: string, subs: boolean, n: number) => slotsFor(format, gender, subs, n).map((s) => s.key);
+
+  it("adds Middie 4 and 5 right after Middie 3 on a girls field game", () => {
+    const k = keys("field", "girls", false, 2);
+    expect(k.slice(k.indexOf("M3"), k.indexOf("M3") + 3)).toEqual(["M3", "M4", "M5"]);
+    expect(k).toHaveLength(14);
+    expect(keys("field", "girls", false, 1)).toContain("M4");
+    expect(keys("field", "girls", false, 1)).not.toContain("M5");
+    expect(keys("field", "girls", false, 0)).toHaveLength(12);
+  });
+
+  it("uses each format's own keys", () => {
+    expect(keys("field", "boys", false, 2)).toEqual(expect.arrayContaining(["BM4", "BM5"]));
+    expect(keys("sevens", "girls", false, 2)).toEqual(expect.arrayContaining(["7M4", "7M5"]));
+    expect(keys("field", "boys", false, 2)).not.toContain("M4");
+  });
+
+  it("works with or without subs, with the sub spots staying after the starters", () => {
+    const withSubs = keys("field", "girls", true, 2);
+    expect(withSubs).toHaveLength(12 + 2 + 7);
+    expect(withSubs.indexOf("M5")).toBeLessThan(withSubs.indexOf("XA1"));
+    expect(keys("field", "girls", false, 2)).not.toContain("XM1");
+  });
+
+  it("sixes has no midfield to add to, and the count is kept between 0 and 2", () => {
+    expect(formatAllowsExtraMids("sixes")).toBe(false);
+    expect(formatAllowsExtraMids("field")).toBe(true);
+    expect(keys("sixes", "girls", false, 2)).toHaveLength(6);
+    expect(clampExtraMids(5)).toBe(2);
+    expect(clampExtraMids(-1)).toBe(0);
+    expect(clampExtraMids(1.9)).toBe(1);
+    expect(clampExtraMids(Number.NaN)).toBe(0);
+  });
+
+  it("the extra lines are starting slots (not subs) and are labelled in history and exports", () => {
+    expect(isSubSlotKey("M4")).toBe(false);
+    expect(ALL_LINEUP_SLOTS.find((x) => x.key === "BM5")?.label).toBe("Middie 5");
+    expect(lastExtraMidKey("field", "girls", 2)).toBe("M5");
+    expect(lastExtraMidKey("field", "girls", 0)).toBeNull();
+    expect(slotKeysFor("field", "girls", false, 1).has("M4")).toBe(true);
   });
 });

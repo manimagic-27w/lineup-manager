@@ -19,7 +19,7 @@ import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 import { coreThenGuests } from "@/lib/guests";
-import { formatAllowsSubs, isSubSlotKey, slotKeysFor, slotsFor } from "@/lib/lineup-slots";
+import { clampExtraMids, formatAllowsExtraMids, formatAllowsSubs, isSubSlotKey, slotKeysFor, slotsFor } from "@/lib/lineup-slots";
 
 const STATUS_KEYS = AVAILABILITY_STATUSES as unknown as [string, ...string[]];
 const FORMAT_KEYS = GAME_FORMATS as unknown as [string, ...string[]];
@@ -240,7 +240,7 @@ export async function deleteGame(formData: FormData) {
 /** Full availability + lineup view for the game-day screen. `format` picks which fixed slot
  *  set (SLOTS or SIXES_SLOTS) the lineup board renders - pass the game's own `format` column
  *  (callers already have the game row loaded before calling this). */
-export async function getGameDay(teamId: string, gameId: string, format: string = "field", subs: boolean = false) {
+export async function getGameDay(teamId: string, gameId: string, format: string = "field", subs: boolean = false, extraMids: number = 0) {
   const { team } = await requireTeamAccess(teamId);
 
   const roster = await db.select().from(players).where(eq(players.teamId, teamId)).orderBy(asc(players.name));
@@ -259,8 +259,55 @@ export async function getGameDay(teamId: string, gameId: string, format: string 
       ...p,
       status: availabilityByPlayer.get(p.id) ?? "No Response",
     })),
-    slots: slotsFor(format, team.gender, subs).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
+    slots: slotsFor(format, team.gender, subs, extraMids).map((s) => ({ ...s, playerId: lineupBySlot.get(s.key) ?? null })),
   };
+}
+
+const setExtraMidsSchema = z.object({
+  teamId: z.string().uuid(),
+  gameId: z.string().uuid(),
+  count: z.number().int().min(0).max(2),
+});
+
+/**
+ * Sets how many extra midfield lines (Middie 4, Middie 5) a game's lineup shows, 0 to 2, whether or
+ * not subs are on. Taking a line away clears whoever was placed in it, so a hidden line never keeps
+ * a player off the bench or counts as a start. Sixes games have no midfield.
+ */
+export async function setGameExtraMids(teamId: string, gameId: string, count: number) {
+  const parsed = setExtraMidsSchema.parse({ teamId, gameId, count: clampExtraMids(count) });
+  const { userId, team } = await requireTeamAccess(parsed.teamId);
+
+  const [game] = await db
+    .select({ date: games.date, opponent: games.opponent, format: games.format, extraMids: games.extraMids })
+    .from(games)
+    .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
+    .limit(1);
+  if (!game) throw new Error("Game not found.");
+  if (!formatAllowsExtraMids(game.format)) throw new Error("Sixes games don't have a midfield line to add to.");
+
+  await db.transaction(async (tx) => {
+    // Clear the lines being taken away (every slot the game shows with the old count but not the new).
+    const before = slotKeysFor(game.format, team.gender, false, game.extraMids);
+    const after = slotKeysFor(game.format, team.gender, false, parsed.count);
+    const removed = [...before].filter((k) => !after.has(k));
+    if (removed.length > 0) {
+      await tx.delete(lineupSlots).where(and(eq(lineupSlots.gameId, parsed.gameId), inArray(lineupSlots.slotKey, removed)));
+    }
+    await tx
+      .update(games)
+      .set({ extraMids: parsed.count })
+      .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
+  });
+
+  await logActivity({
+    teamId: parsed.teamId,
+    actorUserId: userId,
+    action: "game_mids_changed",
+    details: `${parsed.count} ${game.date}${game.opponent ? ` vs ${game.opponent}` : ""}`,
+  });
+  await broadcastTeamUpdate(parsed.teamId, "lineup", parsed.gameId);
+  revalidatePath(`/teams/${parsed.teamId}/games/${parsed.gameId}`);
 }
 
 const setSubsSchema = z.object({
@@ -433,12 +480,12 @@ export async function setLineupSlot(formData: FormData) {
   const { userId, team } = await requireTeamAccess(parsed.teamId);
 
   const [game] = await db
-    .select({ format: games.format, subs: games.subs })
+    .select({ format: games.format, subs: games.subs, extraMids: games.extraMids })
     .from(games)
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
     .limit(1);
   if (!game) throw new Error("Game not found.");
-  const validKeys = slotKeysFor(game.format, team.gender, game.subs);
+  const validKeys = slotKeysFor(game.format, team.gender, game.subs, game.extraMids);
   if (!validKeys.has(parsed.slotKey)) throw new Error("Unrecognized lineup slot for this game's format.");
 
   await db.transaction(async (tx) => {

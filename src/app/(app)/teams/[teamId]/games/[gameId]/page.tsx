@@ -37,7 +37,7 @@ export default async function GameDayPage({
   if (!game) notFound();
 
   const [{ roster, slots }, seasons, tournaments, allGames, guestRoster] = await Promise.all([
-    getGameDay(teamId, gameId, game.format, game.subs),
+    getGameDay(teamId, gameId, game.format, game.subs, game.extraMids),
     listSeasons(teamId),
     listTournaments(teamId),
     listGames(teamId),

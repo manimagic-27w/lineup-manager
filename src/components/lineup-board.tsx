@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { setLineupSlot } from "@/actions/games";
+import { Fragment, useRef, useState, useTransition } from "react";
+import { setGameExtraMids, setLineupSlot } from "@/actions/games";
 import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
-import { leaningForPosition } from "@/lib/db/schema";
+import { EXTRA_MID_SLOTS, leaningForPosition, MAX_EXTRA_MIDS } from "@/lib/db/schema";
 import { getBenchPlayers } from "@/lib/lineup";
 import { isSubSlotKey } from "@/lib/lineup-slots";
 import { cn } from "@/lib/utils";
@@ -105,6 +105,23 @@ export function LineupBoard({
   const attemptSeq = useRef<Record<string, number>>({});
 
   const isSixes = format === "sixes";
+  // Extra midfield lines (Middie 4 / 5): the coach can add up to MAX_EXTRA_MIDS under Middie 3,
+  // with or without subs. The count is read from the slots the server sent.
+  const extraMidKeys = new Set<string>(EXTRA_MID_SLOTS.map((s) => s.key));
+  const shownExtraMids = slots.filter((s) => extraMidKeys.has(s.key)).length;
+  const lastExtraMidKey = [...slots].reverse().find((s) => extraMidKeys.has(s.key))?.key ?? null;
+  const [midPending, startMidTransition] = useTransition();
+  const [midError, setMidError] = useState(false);
+  function changeExtraMids(next: number) {
+    setMidError(false);
+    startMidTransition(async () => {
+      try {
+        await setGameExtraMids(teamId, gameId, next);
+      } catch {
+        setMidError(true);
+      }
+    });
+  }
   const unitOrder = UNIT_ORDER[format] ?? UNIT_ORDER.field;
 
   const playerById = new Map(roster.map((p) => [p.id, p]));
@@ -173,6 +190,8 @@ export function LineupBoard({
         </div>
       )}
 
+      {midError && <p className="text-xs text-red-600">Couldn&rsquo;t change the midfield lines - try again.</p>}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {unitOrder.map((unit) => (
           <div key={unit} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -230,9 +249,15 @@ export function LineupBoard({
                           return rank(a.position) - rank(b.position);
                         });
 
+                  // The "+ Add Middie line" row goes right under the last starting midfielder (above
+                  // any sub spots), until the game has the maximum number of extra lines.
+                  const nextInUnit = unitSlots[slotIndex + 1];
+                  const addMidLineHere =
+                    canEdit && !isSixes && unit === "Midfield" && !slot.sub && !(nextInUnit && !nextInUnit.sub) && shownExtraMids < MAX_EXTRA_MIDS;
+
                   return (
+                    <Fragment key={slot.key}>
                     <li
-                      key={slot.key}
                       className={cn(
                         "flex items-center justify-between gap-2",
                         firstSub && "mt-3 border-t border-dashed border-slate-300 pt-3",
@@ -281,6 +306,21 @@ export function LineupBoard({
                             status={status}
                             onRetry={() => assign(slot.key, localValue[slot.key] ?? "")}
                           />
+                          {slot.key === lastExtraMidKey && (
+                            <button
+                              type="button"
+                              disabled={midPending}
+                              aria-label={`Remove ${slot.label}`}
+                              title={`Remove ${slot.label}`}
+                              onClick={() => {
+                                if (slot.playerId && !window.confirm(`Remove ${slot.label}? ${assignedPlayer?.name ?? "The player"} will come out of the lineup.`)) return;
+                                changeExtraMids(shownExtraMids - 1);
+                              }}
+                              className="shrink-0 rounded px-1.5 text-base leading-none text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
+                            >
+                              &times;
+                            </button>
+                          )}
                         </>
                       ) : (
                         <span
@@ -297,6 +337,19 @@ export function LineupBoard({
                         </span>
                       )}
                     </li>
+                    {addMidLineHere && (
+                      <li>
+                        <button
+                          type="button"
+                          disabled={midPending}
+                          onClick={() => changeExtraMids(shownExtraMids + 1)}
+                          className="text-sm font-medium text-brand-blue hover:underline disabled:opacity-60"
+                        >
+                          + Add Middie line
+                        </button>
+                      </li>
+                    )}
+                    </Fragment>
                   );
                 })}
             </ul>

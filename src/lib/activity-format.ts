@@ -169,6 +169,12 @@ export function describeActivity(action: string, details: string | null, refs: A
       const rest = d.replace(/^(on|off)\s*/, "");
       return `turned subs ${on ? "on" : "off"}${rest ? ` for the game on ${gameLabelFromText(rest)}` : " for a game"}`;
     }
+    case "game_mids_changed": {
+      const n = Number.parseInt(d, 10);
+      const rest = d.replace(/^\d+\s*/, "");
+      const what = n === 1 ? "1 extra midfield line" : n > 1 ? `${n} extra midfield lines` : "no extra midfield lines";
+      return `set ${what}${rest ? ` for the game on ${gameLabelFromText(rest)}` : " for a game"}`;
+    }
     case "game_created":
       return d ? `scheduled a game on ${gameLabelFromText(d)}` : "scheduled a game";
     case "game_updated":

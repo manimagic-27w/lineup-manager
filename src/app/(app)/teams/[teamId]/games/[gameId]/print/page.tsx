@@ -27,7 +27,7 @@ export default async function LineupPrintPage({
   const game = await getGame(teamId, gameId);
   if (!game) notFound();
 
-  const { roster, slots } = await getGameDay(teamId, gameId, game.format, game.subs);
+  const { roster, slots } = await getGameDay(teamId, gameId, game.format, game.subs, game.extraMids);
   // Guests are tagged so the printed sheet shows who is not on the core roster.
   const activeRoster = roster
     .filter((p) => !p.archivedAt)
