@@ -5,7 +5,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
 import { SubmitButton } from "@/components/submit-button";
 import { OpenClubButton } from "@/components/open-club-button";
-import { createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation, setClubFeature, setTeamFeature } from "@/actions/platform";
+import { applyDatabaseUpdates, createClub, inviteClubAdmin, resendClubInvitation, revokeClubInvitation, setClubFeature, setTeamFeature } from "@/actions/platform";
 import { db } from "@/lib/db";
 import { clubFeatures, clubSettings, teamFeatures, teams, CLUB_FEATURES, TEAM_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { isCurrentUserPlatformAdmin, requirePlatformAdmin } from "@/lib/platform";
@@ -286,6 +286,13 @@ export default async function PlatformPage({
             })}
           </ul>
         </section>
+
+        <form action={applyDatabaseUpdates} className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <SubmitButton variant="secondary" pendingLabel="Updating…">
+            Update database
+          </SubmitButton>
+          <span>Adds any new columns the latest version needs. Safe to click more than once.</span>
+        </form>
 
         <p className="text-xs text-slate-500">
           Deploy check:{" "}

@@ -6,9 +6,10 @@ import { revalidatePath } from "next/cache";
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { clubFeatures, clubSettings, teamFeatures, teams, CLUB_FEATURES, TEAM_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { requirePlatformAdmin } from "@/lib/platform";
+import { DATABASE_UPDATES } from "@/lib/db-updates";
 
 const GENDER_KEYS = TEAM_GENDERS.map((t) => t.key) as [string, ...string[]];
 
@@ -239,4 +240,22 @@ export async function setTeamFeature(formData: FormData) {
   }
   revalidatePath("/platform");
   go("notice", `${label} ${enabled === "true" ? "enabled" : "disabled"} for ${team.name}.`);
+}
+
+/** Brings the live database up to date with the latest schema changes (safe to run repeatedly -
+ *  every statement is "if not exists"). Use after a deploy that adds a column, instead of a
+ *  local `npm run db:push`. */
+export async function applyDatabaseUpdates() {
+  await requirePlatformAdmin();
+  try {
+    await db.transaction(async (tx) => {
+      for (const update of DATABASE_UPDATES) {
+        for (const statement of update.statements) await tx.execute(sql.raw(statement));
+      }
+    });
+  } catch (e) {
+    go("error", `Database update failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+  revalidatePath("/", "layout");
+  go("notice", "Database is up to date.");
 }
