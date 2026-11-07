@@ -162,18 +162,33 @@ export const SUB_SLOTS = [
   { key: "XD2", label: "Defense Sub 2", unit: "Defense", pos: "Def", sub: true },
 ] as const;
 
-// Extra midfield lines a coach can add under Middie 3 on a game (games.extra_mids, 0-2), whether or
-// not subs are on: "Middie 4" and "Middie 5". Like the starters they hold a normal starting slot
-// (a player can't also start elsewhere), with keys of their own per format family so they never
-// collide with another format's keys. Sixes has no midfield, so it has none.
+// Extra midfield LINES a coach can add under Middie 1-3 on a game (games.extra_mids = how many, 0-2),
+// whether or not subs are on. A line is MID_LINE_SIZE (3) middies: Line 2 is Middies 4-6 and Line 3
+// is Middies 7-9. Middies 1-3 are the starters (Middie Line 1); the extra lines are not starts, like
+// subs, so History leaves them out. Keys are per format family so they never collide with another
+// format's keys, and they don't start with "X" so a player still holds only one non-sub spot.
+// Sixes has no midfield, so it has none.
 export const MAX_EXTRA_MIDS = 2;
+export const MID_LINE_SIZE = 3;
 export const EXTRA_MID_SLOTS = [
   { key: "M4", label: "Middie 4", unit: "Midfield", pos: "Mid" },
   { key: "M5", label: "Middie 5", unit: "Midfield", pos: "Mid" },
+  { key: "M6", label: "Middie 6", unit: "Midfield", pos: "Mid" },
+  { key: "M7", label: "Middie 7", unit: "Midfield", pos: "Mid" },
+  { key: "M8", label: "Middie 8", unit: "Midfield", pos: "Mid" },
+  { key: "M9", label: "Middie 9", unit: "Midfield", pos: "Mid" },
   { key: "BM4", label: "Middie 4", unit: "Midfield", pos: "Mid" },
   { key: "BM5", label: "Middie 5", unit: "Midfield", pos: "Mid" },
+  { key: "BM6", label: "Middie 6", unit: "Midfield", pos: "Mid" },
+  { key: "BM7", label: "Middie 7", unit: "Midfield", pos: "Mid" },
+  { key: "BM8", label: "Middie 8", unit: "Midfield", pos: "Mid" },
+  { key: "BM9", label: "Middie 9", unit: "Midfield", pos: "Mid" },
   { key: "7M4", label: "Middie 4", unit: "Midfield", pos: "Mid" },
   { key: "7M5", label: "Middie 5", unit: "Midfield", pos: "Mid" },
+  { key: "7M6", label: "Middie 6", unit: "Midfield", pos: "Mid" },
+  { key: "7M7", label: "Middie 7", unit: "Midfield", pos: "Mid" },
+  { key: "7M8", label: "Middie 8", unit: "Midfield", pos: "Mid" },
+  { key: "7M9", label: "Middie 9", unit: "Midfield", pos: "Mid" },
 ] as const;
 
 // "7s" - unlike Sixes, this format keeps the normal Attack/Mid/Def/Goalie positions, just
@@ -358,8 +373,8 @@ export const games = pgTable("games", {
   format: text("format").notNull().default("field"),
   // Whether the lineup board also offers sub spots (SUB_SLOTS) - only Field and Sevens games use it.
   subs: boolean("subs").notNull().default(false),
-  // How many extra midfield lines (Middie 4, Middie 5) the lineup board shows, 0 to MAX_EXTRA_MIDS.
-  // Independent of subs; Sixes ignores it.
+  // How many extra midfield LINES (3 middies each: Middies 4-6, then 7-9) the lineup board shows,
+  // 0 to MAX_EXTRA_MIDS. Independent of subs; Sixes ignores it.
   extraMids: integer("extra_mids").notNull().default(0),
   // Nullable and onDelete "set null" on purpose: deleting a season should never delete its games,
   // just unassign them back to "No season."

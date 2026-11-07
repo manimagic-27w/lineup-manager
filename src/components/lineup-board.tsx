@@ -3,7 +3,7 @@
 import { Fragment, useRef, useState, useTransition } from "react";
 import { setGameExtraMids, setLineupSlot } from "@/actions/games";
 import { formatGradeExperience, LEANING_STYLES } from "@/lib/player-labels";
-import { EXTRA_MID_SLOTS, leaningForPosition, MAX_EXTRA_MIDS } from "@/lib/db/schema";
+import { EXTRA_MID_SLOTS, leaningForPosition, MAX_EXTRA_MIDS, MID_LINE_SIZE } from "@/lib/db/schema";
 import { getBenchPlayers } from "@/lib/lineup";
 import { isSubSlotKey } from "@/lib/lineup-slots";
 import { cn } from "@/lib/utils";
@@ -105,11 +105,12 @@ export function LineupBoard({
   const attemptSeq = useRef<Record<string, number>>({});
 
   const isSixes = format === "sixes";
-  // Extra midfield lines (Middie 4 / 5): the coach can add up to MAX_EXTRA_MIDS under Middie 3,
-  // with or without subs. The count is read from the slots the server sent.
+  // Extra midfield LINES: Middie Line 1 is Middies 1-3, and the coach can add up to MAX_EXTRA_MIDS
+  // more lines of MID_LINE_SIZE middies (Middies 4-6, then 7-9), with or without subs. The number of
+  // extra lines is read from the slots the server sent.
   const extraMidKeys = new Set<string>(EXTRA_MID_SLOTS.map((s) => s.key));
-  const shownExtraMids = slots.filter((s) => extraMidKeys.has(s.key)).length;
-  const lastExtraMidKey = [...slots].reverse().find((s) => extraMidKeys.has(s.key))?.key ?? null;
+  const extraMidSlots = slots.filter((s) => extraMidKeys.has(s.key));
+  const extraLines = Math.ceil(extraMidSlots.length / MID_LINE_SIZE);
   const [midPending, startMidTransition] = useTransition();
   const [midError, setMidError] = useState(false);
   function changeExtraMids(next: number) {
@@ -249,18 +250,51 @@ export function LineupBoard({
                           return rank(a.position) - rank(b.position);
                         });
 
-                  // The "+ Add Middie line" row goes right under the last starting midfielder (above
-                  // any sub spots), until the game has the maximum number of extra lines.
+                  // Once a game has extra midfield lines, the Midfield box is split under headings:
+                  // Middie Line 1 (Middies 1-3), Middie Line 2 (4-6), Middie Line 3 (7-9), then
+                  // Middie Subs when subs are on. The "+ Add Middie line" row goes right under the
+                  // last starting midfielder (above any subs) until the game has the maximum.
                   const nextInUnit = unitSlots[slotIndex + 1];
+                  const linesMode = unit === "Midfield" && !isSixes && extraLines > 0;
+                  const starterIndex = slot.sub ? -1 : unitSlots.slice(0, slotIndex).filter((s) => !s.sub).length;
+                  const lineNumber = starterIndex >= 0 ? Math.floor(starterIndex / MID_LINE_SIZE) + 1 : 0;
+                  const lineHeading = linesMode && !slot.sub && starterIndex % MID_LINE_SIZE === 0;
+                  const subHeading = linesMode && firstSub;
+                  const isLastExtraLine = extraLines > 0 && lineNumber === extraLines + 1;
                   const addMidLineHere =
-                    canEdit && !isSixes && unit === "Midfield" && !slot.sub && !(nextInUnit && !nextInUnit.sub) && shownExtraMids < MAX_EXTRA_MIDS;
+                    canEdit && !isSixes && unit === "Midfield" && !slot.sub && !(nextInUnit && !nextInUnit.sub) && extraLines < MAX_EXTRA_MIDS;
 
                   return (
                     <Fragment key={slot.key}>
+                    {lineHeading && (
+                      <li className={cn("flex items-center justify-between gap-2", lineNumber > 1 && "mt-3 border-t border-slate-200 pt-3")}>
+                        <span className="text-xs font-semibold text-slate-700">Middie Line {lineNumber}</span>
+                        {canEdit && isLastExtraLine && (
+                          <button
+                            type="button"
+                            disabled={midPending}
+                            onClick={() => {
+                              if (
+                                extraMidSlots.slice(-MID_LINE_SIZE).some((s) => s.playerId) &&
+                                !window.confirm(`Remove Middie Line ${lineNumber}? The players in it will come out of the lineup.`)
+                              )
+                                return;
+                              changeExtraMids(extraLines - 1);
+                            }}
+                            className="text-xs font-medium text-slate-500 hover:text-red-600 hover:underline disabled:opacity-60"
+                          >
+                            Remove line
+                          </button>
+                        )}
+                      </li>
+                    )}
+                    {subHeading && (
+                      <li className="mt-3 border-t border-dashed border-slate-300 pt-3 text-xs font-semibold text-slate-700">Middie Subs</li>
+                    )}
                     <li
                       className={cn(
                         "flex items-center justify-between gap-2",
-                        firstSub && "mt-3 border-t border-dashed border-slate-300 pt-3",
+                        firstSub && !subHeading && "mt-3 border-t border-dashed border-slate-300 pt-3",
                       )}
                     >
                       <span className="w-28 shrink-0 text-sm text-slate-600">{slot.label}</span>
@@ -306,21 +340,6 @@ export function LineupBoard({
                             status={status}
                             onRetry={() => assign(slot.key, localValue[slot.key] ?? "")}
                           />
-                          {slot.key === lastExtraMidKey && (
-                            <button
-                              type="button"
-                              disabled={midPending}
-                              aria-label={`Remove ${slot.label}`}
-                              title={`Remove ${slot.label}`}
-                              onClick={() => {
-                                if (slot.playerId && !window.confirm(`Remove ${slot.label}? ${assignedPlayer?.name ?? "The player"} will come out of the lineup.`)) return;
-                                changeExtraMids(shownExtraMids - 1);
-                              }}
-                              className="shrink-0 rounded px-1.5 text-base leading-none text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
-                            >
-                              &times;
-                            </button>
-                          )}
                         </>
                       ) : (
                         <span
@@ -342,7 +361,7 @@ export function LineupBoard({
                         <button
                           type="button"
                           disabled={midPending}
-                          onClick={() => changeExtraMids(shownExtraMids + 1)}
+                          onClick={() => changeExtraMids(extraLines + 1)}
                           className="text-sm font-medium text-brand-blue hover:underline disabled:opacity-60"
                         >
                           + Add Middie line

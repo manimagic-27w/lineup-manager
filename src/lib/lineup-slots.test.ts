@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LINEUP_SLOTS, clampExtraMids, fieldFormatLabel, formatAllowsExtraMids, formatAllowsSubs, isSubSlotKey, lastExtraMidKey, slotKeysFor, slotsFor } from "./lineup-slots";
+import { ALL_LINEUP_SLOTS, clampExtraMids, fieldFormatLabel, formatAllowsExtraMids, formatAllowsSubs, isExtraMidKey, isSubSlotKey, slotKeysFor, slotsFor } from "./lineup-slots";
 
 const count = (slots: readonly { unit: string }[], unit: string) => slots.filter((s) => s.unit === unit).length;
 
@@ -87,25 +87,27 @@ describe("isSubSlotKey", () => {
 describe("extra midfield lines", () => {
   const keys = (format: string, gender: string, subs: boolean, n: number) => slotsFor(format, gender, subs, n).map((s) => s.key);
 
-  it("adds Middie 4 and 5 right after Middie 3 on a girls field game", () => {
-    const k = keys("field", "girls", false, 2);
-    expect(k.slice(k.indexOf("M3"), k.indexOf("M3") + 3)).toEqual(["M3", "M4", "M5"]);
-    expect(k).toHaveLength(14);
-    expect(keys("field", "girls", false, 1)).toContain("M4");
-    expect(keys("field", "girls", false, 1)).not.toContain("M5");
+  it("adds a line of three middies (4-6) right after Middie 3, then a second line (7-9)", () => {
+    const one = keys("field", "girls", false, 1);
+    expect(one.slice(one.indexOf("M3"), one.indexOf("M3") + 4)).toEqual(["M3", "M4", "M5", "M6"]);
+    expect(one).toHaveLength(15);
+    expect(one).not.toContain("M7");
+    const two = keys("field", "girls", false, 2);
+    expect(two.slice(two.indexOf("M3"), two.indexOf("M3") + 7)).toEqual(["M3", "M4", "M5", "M6", "M7", "M8", "M9"]);
+    expect(two).toHaveLength(18);
     expect(keys("field", "girls", false, 0)).toHaveLength(12);
   });
 
   it("uses each format's own keys", () => {
-    expect(keys("field", "boys", false, 2)).toEqual(expect.arrayContaining(["BM4", "BM5"]));
-    expect(keys("sevens", "girls", false, 2)).toEqual(expect.arrayContaining(["7M4", "7M5"]));
+    expect(keys("field", "boys", false, 2)).toEqual(expect.arrayContaining(["BM4", "BM5", "BM6", "BM7", "BM8", "BM9"]));
+    expect(keys("sevens", "girls", false, 1)).toEqual(expect.arrayContaining(["7M4", "7M5", "7M6"]));
     expect(keys("field", "boys", false, 2)).not.toContain("M4");
   });
 
   it("works with or without subs, with the sub spots staying after the starters", () => {
     const withSubs = keys("field", "girls", true, 2);
-    expect(withSubs).toHaveLength(12 + 2 + 7);
-    expect(withSubs.indexOf("M5")).toBeLessThan(withSubs.indexOf("XA1"));
+    expect(withSubs).toHaveLength(12 + 6 + 7);
+    expect(withSubs.indexOf("M9")).toBeLessThan(withSubs.indexOf("XA1"));
     expect(keys("field", "girls", false, 2)).not.toContain("XM1");
   });
 
@@ -119,11 +121,14 @@ describe("extra midfield lines", () => {
     expect(clampExtraMids(Number.NaN)).toBe(0);
   });
 
-  it("the extra lines are starting slots (not subs) and are labelled in history and exports", () => {
+  it("the extra middies are not subs and not starts, and are labelled in history and exports", () => {
     expect(isSubSlotKey("M4")).toBe(false);
+    expect(isExtraMidKey("M4")).toBe(true);
+    expect(isExtraMidKey("BM9")).toBe(true);
+    expect(isExtraMidKey("M3")).toBe(false);
+    expect(isExtraMidKey("XM1")).toBe(false);
     expect(ALL_LINEUP_SLOTS.find((x) => x.key === "BM5")?.label).toBe("Middie 5");
-    expect(lastExtraMidKey("field", "girls", 2)).toBe("M5");
-    expect(lastExtraMidKey("field", "girls", 0)).toBeNull();
-    expect(slotKeysFor("field", "girls", false, 1).has("M4")).toBe(true);
+    expect(slotKeysFor("field", "girls", false, 1).has("M6")).toBe(true);
+    expect(slotKeysFor("field", "girls", false, 1).has("M7")).toBe(false);
   });
 });

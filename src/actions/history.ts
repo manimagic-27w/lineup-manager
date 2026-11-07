@@ -3,7 +3,7 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { games, lineupSlots, SUB_SLOTS, type SlotPosition } from "@/lib/db/schema";
-import { ALL_LINEUP_SLOTS } from "@/lib/lineup-slots";
+import { ALL_LINEUP_SLOTS, isExtraMidKey } from "@/lib/lineup-slots";
 import { requireTeamAccess } from "@/lib/auth";
 import { listRoster } from "@/actions/players";
 import { coreThenGuests } from "@/lib/guests";
@@ -78,8 +78,8 @@ export async function getStartHistory(teamId: string): Promise<PlayerStartHistor
     const game = gameById.get(slot.gameId);
     const position = SLOT_POSITION[slot.slotKey];
     if (!game || !position) continue;
-    // Subs (SUB_SLOTS) are not starts.
-    if (SUB_SLOT_KEYS.has(slot.slotKey)) continue;
+    // Subs (SUB_SLOTS) and the extra midfield lines (Middies 4-9) are not starts; only Middies 1-3 are.
+    if (SUB_SLOT_KEYS.has(slot.slotKey) || isExtraMidKey(slot.slotKey)) continue;
 
     const record: StartRecord = {
       gameId: game.id,

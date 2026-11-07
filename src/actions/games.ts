@@ -270,9 +270,9 @@ const setExtraMidsSchema = z.object({
 });
 
 /**
- * Sets how many extra midfield lines (Middie 4, Middie 5) a game's lineup shows, 0 to 2, whether or
- * not subs are on. Taking a line away clears whoever was placed in it, so a hidden line never keeps
- * a player off the bench or counts as a start. Sixes games have no midfield.
+ * Sets how many extra midfield lines (3 middies each: Middies 4-6, then 7-9) a game's lineup shows,
+ * 0 to 2, whether or not subs are on. Taking a line away clears whoever was placed in it, so a hidden
+ * line never keeps a player off the bench. Sixes games have no midfield.
  */
 export async function setGameExtraMids(teamId: string, gameId: string, count: number) {
   const parsed = setExtraMidsSchema.parse({ teamId, gameId, count: clampExtraMids(count) });
