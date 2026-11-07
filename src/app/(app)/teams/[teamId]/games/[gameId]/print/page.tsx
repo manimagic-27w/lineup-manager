@@ -1,8 +1,11 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { getGame, getGameDay } from "@/actions/games";
 import { requireTeamAccess } from "@/lib/auth";
 import { getBenchPlayers } from "@/lib/lineup";
 import { PrintButton } from "@/components/print-button";
+import { MID_LINE_SIZE } from "@/lib/db/schema";
+import { isExtraMidKey } from "@/lib/lineup-slots";
 
 const UNIT_ORDER_BY_FORMAT: Record<string, string[]> = {
   field: ["Attack", "Midfield", "Defense", "Goalie"],
@@ -65,30 +68,42 @@ export default async function LineupPrintPage({
               </h2>
               <table className="w-full text-sm">
                 <tbody>
-                  {slots
-                    .filter((s) => s.unit === unit)
-                    .map((slot, i, unitSlots) => {
-                      const player = slot.playerId
-                        ? playerById.get(slot.playerId)
-                        : undefined;
+                  {(() => {
+                    const unitSlots = slots.filter((s) => s.unit === unit);
+                    // Once a coach adds an extra midfield line, label each line of three middies
+                    // (and the midfield subs) and draw a rule between lines.
+                    const linesMode = unit === "Midfield" && unitSlots.some((s) => isExtraMidKey(s.key));
+                    return unitSlots.map((slot, i) => {
+                      const player = slot.playerId ? playerById.get(slot.playerId) : undefined;
                       // Subs follow the starters, set off by a heavier rule above the first one.
                       const firstSub = !!slot.sub && !unitSlots[i - 1]?.sub;
+                      const lineStart = linesMode && !slot.sub && i % MID_LINE_SIZE === 0;
+                      const heading = lineStart ? `Middie Line ${i / MID_LINE_SIZE + 1}` : linesMode && firstSub ? "Middie Subs" : null;
                       return (
-                        <tr
-                          key={slot.key}
-                          className={firstSub ? "border-t-2 border-t-slate-300 border-b border-b-slate-100" : "border-b border-slate-100"}
-                        >
-                          <td className="w-28 py-1 pr-2 align-top text-slate-500">
-                            {slot.label}
-                          </td>
-                          <td className="py-1 font-medium text-slate-900">
-                            {player
-                              ? `${player.name}${player.number ? ` #${player.number}` : ""}`
-                              : "—"}
-                          </td>
-                        </tr>
+                        <Fragment key={slot.key}>
+                          {heading && (
+                            <tr className={i > 0 ? "border-t-2 border-t-slate-400" : ""}>
+                              <td colSpan={2} className="pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                {heading}
+                              </td>
+                            </tr>
+                          )}
+                          <tr
+                            className={
+                              firstSub && !linesMode
+                                ? "border-t-2 border-t-slate-300 border-b border-b-slate-100"
+                                : "border-b border-slate-100"
+                            }
+                          >
+                            <td className="w-28 py-1 pr-2 align-top text-slate-500">{slot.label}</td>
+                            <td className="py-1 font-medium text-slate-900">
+                              {player ? `${player.name}${player.number ? ` #${player.number}` : ""}` : "—"}
+                            </td>
+                          </tr>
+                        </Fragment>
                       );
-                    })}
+                    });
+                  })()}
                 </tbody>
               </table>
             </section>
