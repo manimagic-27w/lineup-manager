@@ -5,6 +5,8 @@ import { requireTeamAccess } from "@/lib/auth";
 import { fieldFormatLabel } from "@/lib/lineup-slots";
 import { GamesList } from "@/components/games-list";
 import { SubmitButton } from "@/components/submit-button";
+import { FilmIndexSetup } from "@/components/film-index-setup";
+import { getAppUrl } from "@/lib/app-url";
 import { TeamRealtime } from "@/components/team-realtime";
 
 export default async function GamesPage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -21,6 +23,8 @@ export default async function GamesPage({ params }: { params: Promise<{ teamId: 
       <TeamRealtime teamId={teamId} scopes={["games"]} />
 
       <GamesList teamId={teamId} games={games} seasons={seasons} tournaments={tournaments} />
+
+      <FilmIndexSetup teamId={teamId} url={team.filmIndexToken ? `${getAppUrl()}/film/${team.filmIndexToken}` : null} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Schedule a game</h2>

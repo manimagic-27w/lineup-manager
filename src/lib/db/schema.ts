@@ -260,6 +260,12 @@ export const teams = pgTable("teams", {
   statKeeperPinHash: text("stat_keeper_pin_hash"),
   statKeeperFailedAttempts: integer("stat_keeper_failed_attempts").notNull().default(0),
   statKeeperLockedUntil: timestamp("stat_keeper_locked_until", { withTimezone: true }),
+  // Public game-video index for parents (/film/<token>): secret link + 4-number PIN, locked for a
+  // while after too many wrong tries. Null token = the index is off.
+  filmIndexToken: text("film_index_token").unique(),
+  filmIndexPinHash: text("film_index_pin_hash"),
+  filmIndexFailedAttempts: integer("film_index_failed_attempts").notNull().default(0),
+  filmIndexLockedUntil: timestamp("film_index_locked_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   createdBy: text("created_by").notNull(), // Clerk user id
 });
