@@ -17,8 +17,8 @@ for tool in pg_dump pg_restore psql; do
   command -v "$tool" >/dev/null || { echo "Missing $tool. Install it with:  brew install libpq"; exit 1; }
 done
 
-clean() { # drop options that sometimes break command-line tools
-  printf '%s' "$1" | sed -E 's/[&?]channel_binding=require//; s/\?$//'
+clean() { # drop options that sometimes break command-line tools, and use the DIRECT host (no -pooler)
+  printf '%s' "$1" | sed -E 's/[&?]channel_binding=require//; s/\?$//; s#(@[^/:?]+)-pooler#\1#'
 }
 
 read -r -s -p "SOURCE (old) connection string: " SRC_RAW; echo
@@ -51,7 +51,11 @@ trap 'rm -f "$FILE"' EXIT
 echo "Dumping the source..."
 pg_dump "$SRC" --schema=public --format=custom --no-owner --no-acl --file="$FILE"
 echo "Restoring into the destination..."
-pg_restore --dbname="$DST" --no-owner --no-acl --exit-on-error "$FILE"
+# The dump re-creates the "public" schema, which every new database already has - skip just that entry.
+LIST="$(mktemp -t lineup-db-list-XXXXXX)"
+trap 'rm -f "$FILE" "$LIST"' EXIT
+pg_restore --list "$FILE" | grep -v -E '^[0-9]+; [0-9]+ [0-9]+ SCHEMA - public( |$)' > "$LIST"
+pg_restore --dbname="$DST" --no-owner --no-acl --exit-on-error --use-list="$LIST" "$FILE"
 
 echo "Comparing row counts..."
 tables="$(psql "$SRC" -Atc "select tablename from pg_tables where schemaname='public' order by 1")"
