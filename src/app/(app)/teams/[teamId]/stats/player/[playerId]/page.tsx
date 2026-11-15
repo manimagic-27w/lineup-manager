@@ -29,7 +29,9 @@ export default async function PlayerStatsPage({
   if (!player) notFound();
 
   const teamSeasons = await db.select({ id: seasons.id, name: seasons.name }).from(seasons).where(eq(seasons.teamId, teamId)).orderBy(asc(seasons.createdAt));
-  const games = filterGamesBySeason(sheet.games, season);
+  // A guest only has the games they were added to; a core player has every game on the schedule.
+  const seasonGames = filterGamesBySeason(sheet.games, season);
+  const games = player.isGuest ? seasonGames.filter((g) => sheet.availability[`${g.id}:${playerId}`] !== undefined) : seasonGames;
   const logged = await countEventsByGame(teamId);
   const categoryIds = sheet.categories.map((c) => c.id);
   const roll = rollupPlayer(playerId, games, categoryIds, sheet.values, sheet.availability);
@@ -48,6 +50,7 @@ export default async function PlayerStatsPage({
         </h2>
         <p className="mt-1 text-sm text-slate-600">
           Game-by-game stats. {roll.games} game{roll.games === 1 ? "" : "s"} played (marked Available on the game).
+          {player.isGuest ? " Guest players show only the games they were added to." : ""}
         </p>
       </div>
       <SeasonPills
