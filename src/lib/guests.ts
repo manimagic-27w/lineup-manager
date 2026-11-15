@@ -43,3 +43,16 @@ export function matchesCorePlayer<T extends GuestLike>(players: T[], name: strin
 export function guestsAvailableForGame<T extends GuestLike>(allGuests: T[], onGameIds: Set<string>): T[] {
   return allGuests.filter((g) => g.isGuest && !g.archivedAt && !onGameIds.has(g.id));
 }
+
+/**
+ * Who can be given stats: core players, plus a guest once they've been added to a game (they have
+ * an availability row for it). Archived players never can.
+ */
+export function canHaveStats(p: { isGuest: boolean; archivedAt?: Date | null }, hasGameRow: boolean): boolean {
+  return !p.archivedAt && (!p.isGuest || hasGameRow);
+}
+
+/** A guest's name as shown on the stats pages and the stat keeper. */
+export function statDisplayName(p: { name: string; isGuest: boolean }): string {
+  return p.isGuest ? `${p.name} (guest)` : p.name;
+}

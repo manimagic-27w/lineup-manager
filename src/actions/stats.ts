@@ -20,6 +20,7 @@ import { STAT_CODES } from "@/lib/stat-import";
 import { addMissingCategories } from "@/lib/stat-categories";
 import { requireTeamAccess } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
+import { canHaveStats, statDisplayName } from "@/lib/guests";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 
 /**
@@ -44,18 +45,18 @@ export async function getStatSheet(teamId: string) {
     .from(players)
     .where(eq(players.teamId, teamId))
     .orderBy(asc(players.name));
-  // Guests are not on the stats sheet (it is per core-roster player).
-  const activeRoster = roster.filter((p) => !p.archivedAt && !p.isGuest);
+  const gameIds = teamGames.map((g) => g.id);
+  const availability = gameIds.length > 0 ? await db.select().from(gamePlayers).where(inArray(gamePlayers.gameId, gameIds)) : [];
+  // Guests join the sheet once they've been added to a game (they have an availability row), listed
+  // after the core roster and tagged "(guest)".
+  const guestsOnGames = new Set(availability.map((a) => a.playerId));
+  const eligible = roster.filter((p) => canHaveStats(p, guestsOnGames.has(p.id)));
+  const activeRoster = [...eligible.filter((p) => !p.isGuest), ...eligible.filter((p) => p.isGuest)].map((p) => ({ ...p, name: statDisplayName(p) }));
 
   if (teamGames.length === 0 || activeRoster.length === 0 || categories.length === 0) {
     return { categories, games: teamGames, roster: activeRoster, values: {}, blackouts: {}, availability: {} as Record<string, string> };
   }
 
-  const gameIds = teamGames.map((g) => g.id);
-  const availability = await db
-    .select()
-    .from(gamePlayers)
-    .where(inArray(gamePlayers.gameId, gameIds));
   const values = await db.select().from(statValues).where(inArray(statValues.gameId, gameIds));
 
   const blackouts: Record<string, boolean> = {};

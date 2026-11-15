@@ -1,14 +1,34 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { gameEvents, players } from "@/lib/db/schema";
+import { gameEvents, gamePlayers, players } from "@/lib/db/schema";
+import { canHaveStats, statDisplayName } from "@/lib/guests";
 import { requireTeamAccess } from "@/lib/auth";
 import { getGameForTeam } from "@/lib/game-events";
 import { formatClock, summarizePeriods } from "@/lib/stat-import";
 import { TeamRealtime } from "@/components/team-realtime";
 import { AssignEventPlayer } from "@/components/assign-event-player";
 import { cn, formatDate } from "@/lib/utils";
+
+/** Players a coach can give an unassigned keeper play to: the active roster, plus guests added to this game. */
+async function assignablePlayers(teamId: string, gameId: string) {
+  const [all, onGame] = await Promise.all([
+    db
+      .select({ id: players.id, name: players.name, number: players.number, isGuest: players.isGuest, archivedAt: players.archivedAt })
+      .from(players)
+      .where(eq(players.teamId, teamId)),
+    db.select({ playerId: gamePlayers.playerId }).from(gamePlayers).where(eq(gamePlayers.gameId, gameId)),
+  ]);
+  const onIds = new Set(onGame.map((g) => g.playerId));
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+  const eligible = all.filter((p) => canHaveStats(p, onIds.has(p.id)));
+  return [...eligible.filter((p) => !p.isGuest).sort(byName), ...eligible.filter((p) => p.isGuest).sort(byName)].map((p) => ({
+    id: p.id,
+    name: statDisplayName(p),
+    number: p.number,
+  }));
+}
 
 export default async function GameLogPage({ params }: { params: Promise<{ teamId: string; gameId: string }> }) {
   const { teamId, gameId } = await params;
@@ -17,9 +37,7 @@ export default async function GameLogPage({ params }: { params: Promise<{ teamId
   if (!game) notFound();
   const events = await db.select().from(gameEvents).where(eq(gameEvents.gameId, gameId)).orderBy(asc(gameEvents.seq));
   const needsPlayer = events.some((e) => e.playerId === null && e.source === "keeper");
-  const roster = needsPlayer
-    ? (await db.select({ id: players.id, name: players.name, number: players.number }).from(players).where(and(eq(players.teamId, teamId), eq(players.isGuest, false), isNull(players.archivedAt)))).sort((a, b) => a.name.localeCompare(b.name))
-    : [];
+  const roster = needsPlayer ? await assignablePlayers(teamId, gameId) : [];
   const periods = summarizePeriods(events);
   const goalsFor = periods.reduce((n, p) => n + p.goalsFor, 0);
   const goalsAgainst = periods.reduce((n, p) => n + p.goalsAgainst, 0);

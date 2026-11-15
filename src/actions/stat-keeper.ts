@@ -8,6 +8,7 @@ import { gameEvents, gamePlayers, games, players, statCategories, statValues, te
 import { requireTeamAccess } from "@/lib/auth";
 import { generateLogToken } from "@/lib/log-token";
 import { hashPin, isValidPin } from "@/lib/pin";
+import { canHaveStats, statDisplayName } from "@/lib/guests";
 import { openKeeper } from "@/lib/stat-keeper-server";
 import { addMissingCategories, categoryIdsByKey } from "@/lib/stat-categories";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
@@ -85,15 +86,20 @@ export async function getKeeperGame(
     .orderBy(asc(players.name));
   const statuses = await db.select({ playerId: gamePlayers.playerId, status: gamePlayers.status }).from(gamePlayers).where(eq(gamePlayers.gameId, game.id));
   const unavailable = new Set(statuses.filter((s) => s.status === "Not Available").map((s) => s.playerId));
-  const list: KeeperPlayer[] = roster
-    .filter((p) => !p.archivedAt && !p.isGuest && !unavailable.has(p.id))
-    .map((p) => ({ id: p.id, name: p.name, number: p.number }))
-    .sort((a, b) => {
-      const na = Number.parseInt(a.number ?? "", 10);
-      const nb = Number.parseInt(b.number ?? "", 10);
-      if (Number.isNaN(na) !== Number.isNaN(nb)) return Number.isNaN(na) ? 1 : -1;
-      return na - nb || a.name.localeCompare(b.name);
-    });
+  const onThisGame = new Set(statuses.map((s) => s.playerId));
+  // Guests appear once they've been added to this game; core players first, then guests.
+  const byNumber = (a: KeeperPlayer, b: KeeperPlayer) => {
+    const na = Number.parseInt(a.number ?? "", 10);
+    const nb = Number.parseInt(b.number ?? "", 10);
+    if (Number.isNaN(na) !== Number.isNaN(nb)) return Number.isNaN(na) ? 1 : -1;
+    return na - nb || a.name.localeCompare(b.name);
+  };
+  const eligible = roster.filter((p) => canHaveStats(p, onThisGame.has(p.id)) && !unavailable.has(p.id));
+  const toKeeper = (p: (typeof roster)[number]): KeeperPlayer => ({ id: p.id, name: statDisplayName(p), number: p.number });
+  const list: KeeperPlayer[] = [
+    ...eligible.filter((p) => !p.isGuest).map(toKeeper).sort(byNumber),
+    ...eligible.filter((p) => p.isGuest).map(toKeeper).sort(byNumber),
+  ];
 
   const all = await loadEvents(game.id);
   const recent = [...all].sort((a, b) => b.seq - a.seq).slice(0, 12);
@@ -136,12 +142,12 @@ export async function recordKeeperAction(input: z.input<typeof recordSchema>): P
       .from(players)
       .where(and(eq(players.id, v.playerId), eq(players.teamId, teamId)))
       .limit(1);
-    if (!found || found.archivedAt || found.isGuest) return { ok: false, error: "That player isn't on the active roster." };
     const [status] = await db
       .select({ status: gamePlayers.status })
       .from(gamePlayers)
-      .where(and(eq(gamePlayers.gameId, game.id), eq(gamePlayers.playerId, found.id)))
+      .where(and(eq(gamePlayers.gameId, game.id), eq(gamePlayers.playerId, v.playerId)))
       .limit(1);
+    if (!found || !canHaveStats(found, !!status)) return { ok: false, error: "That player isn't on the active roster." };
     if (status?.status === "Not Available") return { ok: false, error: `${found.name} is marked Not Available for this game.` };
     player = { id: found.id, name: found.name };
   }
@@ -257,7 +263,14 @@ export async function assignEventPlayer(teamId: string, eventId: string, playerI
     .from(players)
     .where(and(eq(players.id, ids.data.playerId), eq(players.teamId, ids.data.teamId)))
     .limit(1);
-  if (!player || player.archivedAt || player.isGuest) return { ok: false, error: "That player isn't on the active roster." };
+  const [onGame] = player
+    ? await db
+        .select({ playerId: gamePlayers.playerId })
+        .from(gamePlayers)
+        .where(and(eq(gamePlayers.gameId, row.gameId), eq(gamePlayers.playerId, player.id)))
+        .limit(1)
+    : [];
+  if (!player || !canHaveStats(player, !!onGame)) return { ok: false, error: "That player isn't on the active roster." };
 
   const existing = await db.select().from(statCategories).where(eq(statCategories.teamId, ids.data.teamId));
   if (existing.length === 0) return { ok: false, error: "Stats aren't turned on for this team yet." };
