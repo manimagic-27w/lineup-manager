@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CoachBackLink } from "@/components/coach-back-link";
 import { Logo } from "@/components/logo";
 import { StatKeeperClient } from "@/components/stat-keeper-client";
 import { getTeamByKeeperToken } from "@/lib/stat-keeper-server";
@@ -19,6 +20,7 @@ export default async function StatKeeperPage({ params }: { params: Promise<{ tok
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-4 py-5 sm:py-8">
+      <CoachBackLink />
       <div className="mb-5 text-center">
         <Logo className="text-2xl" />
         <h1 className="mt-3 text-lg font-semibold text-slate-900">{team.name} &ndash; stat keeper</h1>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { CoachBackLink } from "@/components/coach-back-link";
 import { Logo } from "@/components/logo";
 import { TrainingLogClient } from "@/components/training-log-client";
 import { getTeamByLogToken, listActiveLogRoster } from "@/lib/training-log-server";
@@ -18,6 +19,7 @@ export default async function PlayerLogPage({ params }: { params: Promise<{ toke
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-4 py-6 sm:py-10">
+      <CoachBackLink />
       <div className="mb-6 text-center">
         <Logo className="text-3xl" />
         <h1 className="mt-4 text-xl font-semibold text-slate-900">{team.name}</h1>
