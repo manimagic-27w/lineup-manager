@@ -4,7 +4,8 @@ export type FilmIndexGame = {
   id: string;
   date: string;
   opponent: string | null;
-  href: string;
+  /** One link, or two when the game video is split into parts. */
+  hrefs: string[];
   /** e.g. "W 8-5", or null when no score has been entered. */
   result: string | null;
   friendly: boolean;
@@ -17,6 +18,7 @@ type Row = {
   date: string;
   opponent: string | null;
   filmUrl: string | null;
+  filmUrl2?: string | null;
   ourScore: number | null;
   opponentScore: number | null;
   isFriendly: boolean;
@@ -36,7 +38,8 @@ export function resultText(our: number | null, theirs: number | null): string | 
  * and a game with no tournament sits ahead of that season's tournament groups.
  */
 export function buildFilmIndex(rows: Row[], seasonNames: Map<string, string>, tournamentNames: Map<string, string>): FilmIndexSeason[] {
-  const withFilm = rows.filter((g) => g.filmUrl && g.filmUrl.trim()).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const linksOf = (g: Row) => [g.filmUrl, g.filmUrl2].map((u) => (u ?? "").trim()).filter(Boolean).map(ensureHttpUrl);
+  const withFilm = rows.filter((g) => linksOf(g).length > 0).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const seasons = new Map<string, { name: string | null; newest: string; tournaments: Map<string, FilmIndexTournament> }>();
   for (const g of withFilm) {
     const seasonKey = g.seasonId && seasonNames.has(g.seasonId) ? g.seasonId : "none";
@@ -55,7 +58,7 @@ export function buildFilmIndex(rows: Row[], seasonNames: Map<string, string>, to
       id: g.id,
       date: g.date,
       opponent: g.opponent,
-      href: ensureHttpUrl(g.filmUrl!.trim()),
+      hrefs: linksOf(g),
       result: resultText(g.ourScore, g.opponentScore),
       friendly: g.isFriendly,
     });

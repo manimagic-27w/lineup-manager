@@ -69,6 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     { header: "Opponent score", key: "opponentScore", width: 14 },
     { header: "Friendly", key: "friendly", width: 10 },
     { header: "Film link", key: "filmUrl", width: 30 },
+    { header: "Film link 2", key: "filmUrl2", width: 30 },
     { header: "Notes", key: "notes", width: 40 },
   ];
   for (const g of data.games) {
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       opponentScore: g.opponentScore ?? "",
       friendly: g.isFriendly ? "Yes" : "No",
       filmUrl: g.filmUrl ?? "",
+      filmUrl2: g.filmUrl2 ?? "",
       notes: g.notes,
     });
   }

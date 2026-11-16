@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildFilmIndex, resultText } from "./film-index";
 
-const base = { opponent: "Opp", ourScore: null, opponentScore: null, isFriendly: false, seasonId: null, tournamentId: null, filmUrl: "youtu.be/x" };
+const base = { filmUrl2: null as string | null, opponent: "Opp", ourScore: null, opponentScore: null, isFriendly: false, seasonId: null, tournamentId: null, filmUrl: "youtu.be/x" };
 const row = (o: Partial<Parameters<typeof buildFilmIndex>[0][number]> & { id: string; date: string }) => ({ ...base, ...o });
 
 describe("resultText", () => {
@@ -21,7 +21,7 @@ describe("buildFilmIndex", () => {
     const out = buildFilmIndex([row({ id: "a", date: "2026-10-01" }), row({ id: "b", date: "2026-10-02", filmUrl: null }), row({ id: "c", date: "2026-10-03", filmUrl: "  " })], seasons, tourneys);
     expect(out).toHaveLength(1);
     expect(out[0].tournaments[0].games.map((g) => g.id)).toEqual(["a"]);
-    expect(out[0].tournaments[0].games[0].href).toBe("https://youtu.be/x");
+    expect(out[0].tournaments[0].games[0].hrefs).toEqual(["https://youtu.be/x"]);
   });
 
   it("groups by season (newest first, none last) and tournament, newest game first", () => {
@@ -40,5 +40,16 @@ describe("buildFilmIndex", () => {
     const fall = out[0];
     expect(fall.tournaments.map((t) => t.name)).toEqual([null, "Fall Classic"]);
     expect(fall.tournaments[1].games.map((g) => g.id)).toEqual(["t2", "t1"]);
+  });
+
+  it("lists a second link as a second part, and includes a game with only the second link", () => {
+    const out = buildFilmIndex(
+      [row({ id: "split", date: "2026-10-01", filmUrl: "a.com/1", filmUrl2: "https://b.com/2" }), row({ id: "only2", date: "2026-10-02", filmUrl: null, filmUrl2: "c.com/x" })],
+      seasons,
+      tourneys,
+    );
+    const g = out[0].tournaments[0].games;
+    expect(g.find((x) => x.id === "split")!.hrefs).toEqual(["https://a.com/1", "https://b.com/2"]);
+    expect(g.find((x) => x.id === "only2")!.hrefs).toEqual(["https://c.com/x"]);
   });
 });

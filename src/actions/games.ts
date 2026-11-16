@@ -47,6 +47,7 @@ const createGameSchema = z.object({
   // Empty string means "No season" - seasonId stays optional on every game.
   seasonId: z.union([z.string().uuid(), z.literal("")]),
   filmUrl: z.string().trim().max(500),
+  filmUrl2: z.string().trim().max(500).default(""),
   format: z.enum(FORMAT_KEYS).default("field"),
   isFriendly: z.boolean().default(false),
   // Empty string means "No tournament".
@@ -74,6 +75,7 @@ export async function createGame(formData: FormData) {
     notes: formData.get("notes") ?? "",
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
+    filmUrl2: formData.get("filmUrl2") ?? "",
     format: formData.get("format") || "field",
     isFriendly: formData.get("isFriendly") === "on",
     tournamentId: formData.get("tournamentId") ?? "",
@@ -90,6 +92,7 @@ export async function createGame(formData: FormData) {
       notes: parsed.notes,
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
+      filmUrl2: parsed.filmUrl2 || null,
       format: parsed.format,
       isFriendly: parsed.isFriendly,
       tournamentId,
@@ -178,6 +181,7 @@ export async function updateGame(formData: FormData) {
     notes: formData.get("notes") ?? "",
     seasonId: formData.get("seasonId") ?? "",
     filmUrl: formData.get("filmUrl") ?? "",
+    filmUrl2: formData.get("filmUrl2") ?? "",
     format: formData.get("format") || "field",
     tournamentId: formData.get("tournamentId") ?? "",
   });
@@ -192,6 +196,7 @@ export async function updateGame(formData: FormData) {
       notes: parsed.notes,
       seasonId: parsed.seasonId || null,
       filmUrl: parsed.filmUrl || null,
+      filmUrl2: parsed.filmUrl2 || null,
       format: parsed.format,
       tournamentId,
     })

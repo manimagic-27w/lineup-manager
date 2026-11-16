@@ -240,6 +240,15 @@ export default async function GameDayPage({
               className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-600">Film link 2 (if split)</label>
+            <input
+              name="filmUrl2"
+              defaultValue={game.filmUrl2 ?? ""}
+              placeholder="https://…"
+              className="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
           <input type="hidden" name="notes" value={game.notes} />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save
@@ -252,7 +261,17 @@ export default async function GameDayPage({
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-brand-blue hover:bg-slate-200"
           >
-            Watch film ↗
+            {game.filmUrl2 ? "Watch film part 1 ↗" : "Watch film ↗"}
+          </a>
+        )}
+        {game.filmUrl2 && (
+          <a
+            href={ensureHttpUrl(game.filmUrl2)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-brand-blue hover:bg-slate-200"
+          >
+            {game.filmUrl ? "Watch film part 2 ↗" : "Watch film ↗"}
           </a>
         )}
         <PrintLineupButton href={`/teams/${teamId}/games/${gameId}/print`} />
@@ -284,6 +303,7 @@ export default async function GameDayPage({
             <input type="hidden" name="format" value={game.format} />
             <input type="hidden" name="tournamentId" value={game.tournamentId ?? ""} />
             <input type="hidden" name="filmUrl" value={game.filmUrl ?? ""} />
+            <input type="hidden" name="filmUrl2" value={game.filmUrl2 ?? ""} />
             <label htmlFor="game-notes" className="mb-1 block text-xs font-medium text-slate-600">
               Notes
             </label>

@@ -12,6 +12,7 @@ type Game = {
   opponent: string | null;
   seasonId: string | null;
   filmUrl: string | null;
+  filmUrl2?: string | null;
   format: string;
   ourScore: number | null;
   opponentScore: number | null;
@@ -84,7 +85,18 @@ export function GamesList({
                   onClick={(e) => e.stopPropagation()}
                   className="text-brand-blue hover:underline"
                 >
-                  Film ↗
+                  {g.filmUrl2 ? "Film 1 ↗" : "Film ↗"}
+                </a>
+              )}
+              {g.filmUrl2 && (
+                <a
+                  href={ensureHttpUrl(g.filmUrl2)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-brand-blue hover:underline"
+                >
+                  {g.filmUrl ? "Film 2 ↗" : "Film ↗"}
                 </a>
               )}
             </div>

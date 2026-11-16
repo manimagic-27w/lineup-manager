@@ -1,5 +1,5 @@
 /**
- * Idempotent copies of the most recent schema migrations (0019-0023), so a platform admin can
+ * Idempotent copies of the most recent schema migrations (0019-0024), so a platform admin can
  * bring the live database up to date from the /platform page without a local `db:push`.
  * Every statement is safe to run more than once. Keep in sync with the drizzle/*.sql files
  * when adding a migration that the live site needs right away.
@@ -55,5 +55,9 @@ export const DATABASE_UPDATES: readonly { name: string; statements: readonly str
       EXCEPTION WHEN duplicate_object OR duplicate_table THEN null;
       END $$`,
     ],
+  },
+  {
+    name: "0024 second game film link",
+    statements: [`ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "film_url_2" text`],
   },
 ];

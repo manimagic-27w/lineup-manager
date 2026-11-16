@@ -29,6 +29,7 @@ export async function unlockFilmIndex(
         date: games.date,
         opponent: games.opponent,
         filmUrl: games.filmUrl,
+        filmUrl2: games.filmUrl2,
         ourScore: games.ourScore,
         opponentScore: games.opponentScore,
         isFriendly: games.isFriendly,

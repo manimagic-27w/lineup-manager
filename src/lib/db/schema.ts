@@ -391,6 +391,8 @@ export const games = pgTable("games", {
   // free text rather than a strict URL type so an already-pasted link never fails to save; the UI
   // is responsible for treating it as a link when rendering it.
   filmUrl: text("film_url"),
+  // A second link for when a game's video is split into two parts (e.g. two halves, or two uploads).
+  filmUrl2: text("film_url_2"),
   // Final score, entered after the game. Both null until a result is recorded; they are always
   // set together (see setGameResult). ourScore is this team's goals, whichever side was "home".
   ourScore: integer("our_score"),

@@ -35,14 +35,19 @@ function GameRow({ g }: { g: FilmIndexGame }) {
           {g.friendly ? " · scrimmage" : ""}
         </p>
       </div>
-      <a
-        href={g.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="shrink-0 rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-white hover:bg-brand-orange-light"
-      >
-        Watch
-      </a>
+      <div className="flex shrink-0 gap-2">
+        {g.hrefs.map((href, i) => (
+          <a
+            key={href}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md bg-brand-orange px-4 py-2 text-sm font-semibold text-white hover:bg-brand-orange-light"
+          >
+            {g.hrefs.length > 1 ? `Part ${i + 1}` : "Watch"}
+          </a>
+        ))}
+      </div>
     </li>
   );
 }
