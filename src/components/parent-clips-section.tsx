@@ -13,6 +13,7 @@ import {
 } from "@/actions/parent-clips";
 import { CLIP_DELETE_NOTICE, CLIP_LIFETIME_DAYS, MAX_CLIP_BYTES, MB, checkClipFile, daysLeft, daysLeftLabel, formatClipSize } from "@/lib/clip-plan";
 import { cn } from "@/lib/utils";
+import { CollapsibleGroup } from "@/components/collapsible-group";
 
 type Hub = { configured: boolean; games: ClipGameOption[]; tournaments: ClipTournamentOption[]; clips: ClipDTO[] };
 
@@ -135,6 +136,7 @@ export function ParentClipsSection({ token, pin }: { token: string; pin: string 
   const [rows, setRows] = useState<UploadRow[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -194,6 +196,7 @@ export function ParentClipsSection({ token, pin }: { token: string; pin: string 
       }
     }
     setBusy(false);
+    setOpenKeys((prev) => new Set(prev).add(scope));
     setCaption("");
     if (fileRef.current) fileRef.current.value = "";
     await load();
@@ -314,14 +317,27 @@ export function ParentClipsSection({ token, pin }: { token: string; pin: string 
         <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">No clips yet. Be the first to share one.</p>
       ) : (
         groups.map((g) => (
-          <div key={g.key} className="rounded-lg border border-slate-200 bg-white px-4">
-            <p className="border-b border-slate-100 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.title}</p>
+          <CollapsibleGroup
+            key={g.key}
+            title={g.title}
+            count={g.clips.length}
+            countLabel="clip"
+            open={openKeys.has(g.key)}
+            onToggle={() =>
+              setOpenKeys((prev) => {
+                const next = new Set(prev);
+                if (next.has(g.key)) next.delete(g.key);
+                else next.add(g.key);
+                return next;
+              })
+            }
+          >
             <ul className="divide-y divide-slate-100">
               {g.clips.map((c) => (
                 <ClipRow key={c.id} clip={c} token={token} pin={pin} />
               ))}
             </ul>
-          </div>
+          </CollapsibleGroup>
         ))
       )}
     </section>

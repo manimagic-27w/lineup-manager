@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { unlockFilmIndex } from "@/actions/film-index";
 import type { FilmIndexGame, FilmIndexSeason } from "@/lib/film-index";
 import { ParentClipsSection } from "@/components/parent-clips-section";
+import { CollapsibleGroup } from "@/components/collapsible-group";
 
 function prettyDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -61,6 +62,7 @@ export function FilmIndexClient({ token, teamName }: { token: string; teamName: 
   const [pinInput, setPinInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
   async function unlock(pin: string): Promise<boolean> {
     setBusy(true);
@@ -143,16 +145,33 @@ export function FilmIndexClient({ token, teamName }: { token: string; teamName: 
         seasons.map((season) => (
           <section key={season.name ?? "none"} className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{season.name ?? "Other games"}</h2>
-            {season.tournaments.map((t) => (
-              <div key={t.name ?? "none"} className="rounded-lg border border-slate-200 bg-white px-4">
-                {t.name && <p className="border-b border-slate-100 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t.name}</p>}
-                <ul className="divide-y divide-slate-100">
-                  {t.games.map((g) => (
-                    <GameRow key={g.id} g={g} />
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {season.tournaments.map((t) => {
+              const key = `${season.name ?? ""}|${t.name ?? ""}`;
+              const only = seasons.length === 1 && season.tournaments.length === 1; // the only group starts open; tapping it flips that
+              return (
+                <CollapsibleGroup
+                  key={key}
+                  title={t.name ?? "Regular games"}
+                  count={t.games.length}
+                  countLabel="game"
+                  open={openKeys.has(key) !== only}
+                  onToggle={() =>
+                    setOpenKeys((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    })
+                  }
+                >
+                  <ul className="divide-y divide-slate-100">
+                    {t.games.map((g) => (
+                      <GameRow key={g.id} g={g} />
+                    ))}
+                  </ul>
+                </CollapsibleGroup>
+              );
+            })}
           </section>
         ))
       )}
