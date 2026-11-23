@@ -82,3 +82,24 @@ straight to an R2 bucket. Clips can be downloaded for 24 hours and are then eras
 7. Switch the feature on for a team: Platform admin → open the club's "Team premium" list → Turn on beside the team. (Game film is per team; Practice plans stay per club.)
 
 Until step 5 is done, the game page shows "Film upload isn't set up for this app yet."
+
+## Parent clips (Cloudflare R2, 60-day retention)
+Parents upload short clips (up to 500 MB each) from the parents' video page (`/film/<token>`, link + PIN)
+and share them with other parents. Clips are kept **60 days** and then erased, and the page tells
+parents so. This needs its **own bucket** because the film bucket above has a bucket-wide 1-day
+lifecycle rule. One-time setup:
+
+1. Cloudflare dashboard -> R2 -> **Create bucket** (e.g. `lineup-clips`). Keep it private.
+2. Bucket -> Settings -> **CORS policy** -> same JSON as the film bucket (PUT and GET from
+   `https://lacrosselineupmanager.com` and `http://localhost:3000`, `AllowedHeaders: ["content-type"]`).
+3. Bucket -> Settings -> **Object lifecycle rules** -> delete objects **65 days** after upload
+   (a safety net only; the app itself erases at 60 days, from the daily cron and whenever the parents' page loads).
+4. Make sure the R2 API token (Object Read & Write) covers **both** buckets - edit the token and add the new one.
+5. Vercel env var `R2_CLIPS_BUCKET` = the bucket name (the other R2 vars are shared). Redeploy.
+6. Run `npm run db:push` (or the platform admin's **Update database** button) for the `parent_clips` table (migration 0025).
+7. Switch it on per team: Platform admin -> the club's "Team premium" list -> **Parent clip sharing** -> Turn on.
+   The team also needs the parents' video link + PIN turned on (Games tab).
+
+Limits (constants in `src/lib/clip-plan.ts`): 500 MB per clip, 100 clips per game or tournament,
+25 GB per team. Coaches can delete any clip from the Games tab; deleting a game or tournament erases its clips.
+Until step 5 is done the parents' page says clip uploads aren't set up yet.

@@ -26,36 +26,56 @@ function s3() {
 }
 const bucket = () => process.env.R2_BUCKET!;
 
-export function presignUpload(key: string, expiresInSec = 3600) {
-  return getSignedUrl(s3(), new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: "video/mp4" }), { expiresIn: expiresInSec });
+// Parent clips live in their own bucket (R2_CLIPS_BUCKET) because they are kept 60 days, while the
+// film bucket's lifecycle rule erases everything after a day. Same account and credentials.
+export function clipStorageConfigured(): boolean {
+  return filmStorageConfigured() && !!process.env.R2_CLIPS_BUCKET;
+}
+export const clipBucket = () => process.env.R2_CLIPS_BUCKET!;
+
+type BucketOpts = { bucket?: string; contentType?: string };
+
+export function presignUpload(key: string, expiresInSec = 3600, opts: BucketOpts = {}) {
+  return getSignedUrl(s3(), new PutObjectCommand({ Bucket: opts.bucket ?? bucket(), Key: key, ContentType: opts.contentType ?? "video/mp4" }), {
+    expiresIn: expiresInSec,
+  });
 }
 
-export function presignDownload(key: string, filename: string, expiresInSec: number) {
+/** A short-lived link a browser can play inline (no download header). */
+export function presignView(key: string, expiresInSec: number, opts: BucketOpts = {}) {
+  return getSignedUrl(
+    s3(),
+    new GetObjectCommand({ Bucket: opts.bucket ?? bucket(), Key: key, ResponseContentType: opts.contentType ?? "video/mp4" }),
+    { expiresIn: Math.max(60, Math.min(expiresInSec, 3600)) },
+  );
+}
+
+export function presignDownload(key: string, filename: string, expiresInSec: number, opts: BucketOpts = {}) {
   return getSignedUrl(
     s3(),
     new GetObjectCommand({
-      Bucket: bucket(),
+      Bucket: opts.bucket ?? bucket(),
       Key: key,
       ResponseContentDisposition: `attachment; filename="${filename.replace(/"/g, "")}"`,
-      ResponseContentType: "video/mp4",
+      ResponseContentType: opts.contentType ?? "video/mp4",
     }),
     { expiresIn: Math.max(60, Math.min(expiresInSec, 3600)) },
   );
 }
 
 /** The stored size of an object, or null when it isn't there. */
-export async function objectSize(key: string): Promise<number | null> {
+export async function objectSize(key: string, bucketName?: string): Promise<number | null> {
   try {
-    const res = await s3().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
+    const res = await s3().send(new HeadObjectCommand({ Bucket: bucketName ?? bucket(), Key: key }));
     return res.ContentLength ?? null;
   } catch {
     return null;
   }
 }
 
-export async function deleteObjects(keys: string[]) {
+export async function deleteObjects(keys: string[], bucketName?: string) {
   for (let i = 0; i < keys.length; i += 500) {
     const batch = keys.slice(i, i + 500);
-    await s3().send(new DeleteObjectsCommand({ Bucket: bucket(), Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true } }));
+    await s3().send(new DeleteObjectsCommand({ Bucket: bucketName ?? bucket(), Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true } }));
   }
 }

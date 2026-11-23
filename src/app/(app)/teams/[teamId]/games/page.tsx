@@ -8,15 +8,21 @@ import { SubmitButton } from "@/components/submit-button";
 import { FilmIndexSetup } from "@/components/film-index-setup";
 import { getAppUrl } from "@/lib/app-url";
 import { TeamRealtime } from "@/components/team-realtime";
+import { ParentClipsManager } from "@/components/parent-clips-manager";
+import { listParentClips } from "@/actions/parent-clips";
+import { teamHasFeature } from "@/lib/features";
+import { clipStorageConfigured } from "@/lib/r2";
 
 export default async function GamesPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = await params;
   const { team } = await requireTeamAccess(teamId);
-  const [games, seasons, tournaments] = await Promise.all([
+  const [games, seasons, tournaments, clipsOn] = await Promise.all([
     listGames(teamId),
     listSeasons(teamId),
     listTournaments(teamId),
+    teamHasFeature(teamId, "parent_clips"),
   ]);
+  const clips = clipsOn ? await listParentClips(teamId) : [];
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-8 sm:px-6">
@@ -25,6 +31,8 @@ export default async function GamesPage({ params }: { params: Promise<{ teamId: 
       <GamesList teamId={teamId} games={games} seasons={seasons} tournaments={tournaments} />
 
       <FilmIndexSetup teamId={teamId} url={team.filmIndexToken ? `${getAppUrl()}/film/${team.filmIndexToken}` : null} />
+
+      {clipsOn && <ParentClipsManager teamId={teamId} clips={clips} configured={clipStorageConfigured()} />}
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Schedule a game</h2>

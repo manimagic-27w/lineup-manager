@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { unlockFilmIndex } from "@/actions/film-index";
 import type { FilmIndexGame, FilmIndexSeason } from "@/lib/film-index";
+import { ParentClipsSection } from "@/components/parent-clips-section";
 
 function prettyDate(value: string) {
   return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -56,6 +57,7 @@ export function FilmIndexClient({ token, teamName }: { token: string; teamName: 
   const storeKey = `film:${token}`;
   const [restoring, setRestoring] = useState(true);
   const [seasons, setSeasons] = useState<FilmIndexSeason[] | null>(null);
+  const [pin, setPin] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,6 +73,7 @@ export function FilmIndexClient({ token, teamName }: { token: string; teamName: 
         return false;
       }
       writePin(storeKey, pin);
+      setPin(pin);
       setSeasons(res.seasons);
       return true;
     } catch {
@@ -125,36 +128,36 @@ export function FilmIndexClient({ token, teamName }: { token: string; teamName: 
     );
   }
 
-  if (seasons.length === 0) {
-    return <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">No game video has been posted yet. Check back after the next game.</p>;
-  }
+  const lock = () => {
+    writePin(storeKey, null);
+    setSeasons(null);
+    setPin("");
+    setPinInput("");
+  };
 
   return (
     <div className="space-y-6">
-      {seasons.map((season) => (
-        <section key={season.name ?? "none"} className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{season.name ?? "Other games"}</h2>
-          {season.tournaments.map((t) => (
-            <div key={t.name ?? "none"} className="rounded-lg border border-slate-200 bg-white px-4">
-              {t.name && <p className="border-b border-slate-100 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t.name}</p>}
-              <ul className="divide-y divide-slate-100">
-                {t.games.map((g) => (
-                  <GameRow key={g.id} g={g} />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </section>
-      ))}
-      <button
-        type="button"
-        onClick={() => {
-          writePin(storeKey, null);
-          setSeasons(null);
-          setPinInput("");
-        }}
-        className="block w-full text-center text-sm font-medium text-brand-blue hover:underline"
-      >
+      {seasons.length === 0 ? (
+        <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">No game video has been posted yet. Check back after the next game.</p>
+      ) : (
+        seasons.map((season) => (
+          <section key={season.name ?? "none"} className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{season.name ?? "Other games"}</h2>
+            {season.tournaments.map((t) => (
+              <div key={t.name ?? "none"} className="rounded-lg border border-slate-200 bg-white px-4">
+                {t.name && <p className="border-b border-slate-100 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t.name}</p>}
+                <ul className="divide-y divide-slate-100">
+                  {t.games.map((g) => (
+                    <GameRow key={g.id} g={g} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </section>
+        ))
+      )}
+      <ParentClipsSection token={token} pin={pin} />
+      <button type="button" onClick={lock} className="block w-full text-center text-sm font-medium text-brand-blue hover:underline">
         Lock
       </button>
     </div>

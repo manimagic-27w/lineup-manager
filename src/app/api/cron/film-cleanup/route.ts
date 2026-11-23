@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { purgeExpiredFilms } from "@/lib/film-storage";
+import { purgeExpiredClips } from "@/lib/clip-storage";
 
 // Runs daily from vercel.json. Vercel sends "Authorization: Bearer <CRON_SECRET>". Film is already
 // refused for download after 24 hours; this is what actually erases the files (the R2 bucket's
@@ -12,5 +13,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const erased = await purgeExpiredFilms();
-  return NextResponse.json({ erased });
+  // Parent clips are erased 60 days after upload (and abandoned uploads after a day).
+  const clipsErased = await purgeExpiredClips();
+  return NextResponse.json({ erased, clipsErased });
 }

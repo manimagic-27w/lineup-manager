@@ -16,6 +16,7 @@ import {
   SUB_SLOTS,
 } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
+import { eraseClipsFor } from "@/lib/clip-storage";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 import { coreThenGuests } from "@/lib/guests";
@@ -226,6 +227,8 @@ export async function deleteGame(formData: FormData) {
     .where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)))
     .limit(1);
 
+  // Clips shared for this game live in storage, not just the database - erase them first.
+  if (existing) await eraseClipsFor({ gameId: parsed.gameId });
   await db.delete(games).where(and(eq(games.id, parsed.gameId), eq(games.teamId, parsed.teamId)));
 
   await logActivity({

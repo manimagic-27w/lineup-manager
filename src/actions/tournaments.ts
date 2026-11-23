@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { tournaments } from "@/lib/db/schema";
 import { requireTeamAccess } from "@/lib/auth";
+import { eraseClipsFor } from "@/lib/clip-storage";
 import { logActivity } from "@/lib/activity";
 import { broadcastTeamUpdate } from "@/lib/pusher-server";
 
@@ -52,6 +53,7 @@ export async function deleteTournament(formData: FormData) {
     .where(and(eq(tournaments.id, parsed.tournamentId), eq(tournaments.teamId, parsed.teamId)));
   if (!tournament) return;
 
+  await eraseClipsFor({ tournamentId: parsed.tournamentId });
   await db.delete(tournaments).where(eq(tournaments.id, parsed.tournamentId));
 
   await logActivity({

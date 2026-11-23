@@ -538,6 +538,32 @@ export const gameFilmParts = pgTable(
   (t) => [primaryKey({ columns: [t.filmId, t.partNo] })],
 );
 
+// A video clip a parent shared on the parents' video page, stored in the clips bucket and deleted
+// automatically 60 days after upload (see lib/clip-plan.ts). A clip belongs to exactly ONE game or ONE
+// tournament - enforced in the actions, not by a database check. uploaderName is just the first name
+// the parent typed; there are no parent accounts.
+export const parentClips = pgTable(
+  "parent_clips",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
+    tournamentId: uuid("tournament_id").references(() => tournaments.id, { onDelete: "cascade" }),
+    uploaderName: text("uploader_name").notNull(),
+    caption: text("caption").notNull().default(""),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    objectKey: text("object_key").notNull(),
+    bytes: bigint("bytes", { mode: "number" }).notNull(),
+    status: text("status").notNull().default("uploading"), // "uploading" | "ready"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [index("parent_clips_team_idx").on(t.teamId), index("parent_clips_expires_idx").on(t.expiresAt)],
+);
+
 /* ------------------------------------------------------------------ */
 /* Activity log                                                        */
 /* ------------------------------------------------------------------ */
@@ -599,7 +625,10 @@ export type ClubFeatureKey = (typeof CLUB_FEATURES)[number]["key"];
 
 // Paid add-ons a platform admin switches on per TEAM (see /platform, under each club's teams). A
 // team without a row for a feature does not have it, even if another team in its club does.
-export const TEAM_FEATURES = [{ key: "game_film", label: "Game film download" }] as const;
+export const TEAM_FEATURES = [
+  { key: "game_film", label: "Game film download" },
+  { key: "parent_clips", label: "Parent clip sharing" },
+] as const;
 export type TeamFeatureKey = (typeof TEAM_FEATURES)[number]["key"];
 
 export const teamFeatures = pgTable(
