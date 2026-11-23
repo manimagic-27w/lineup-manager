@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteParentClip, updateParentClipCaption, type CoachClipDTO } from "@/actions/parent-clips";
+import { CollapsibleGroup } from "@/components/collapsible-group";
 import { CLIP_DELETE_NOTICE, daysLeft, daysLeftLabel, formatClipSize } from "@/lib/clip-plan";
 
 function ClipItem({ clip, teamId, onChanged }: { clip: CoachClipDTO; teamId: string; onChanged: () => void }) {
@@ -101,6 +102,16 @@ export function ParentClipsManager({
 }) {
   const router = useRouter();
   const missing = clips.filter((c) => !c.caption).length;
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+
+  // One collapsed row per game or tournament (newest first, as the clips arrive).
+  const groups: { key: string; title: string; clips: CoachClipDTO[] }[] = [];
+  for (const c of clips) {
+    const key = c.tournamentId ? `t:${c.tournamentId}` : `g:${c.gameId}`;
+    let group = groups.find((g) => g.key === key);
+    if (!group) groups.push((group = { key, title: c.scopeLabel, clips: [] }));
+    group.clips.push(c);
+  }
 
   return (
     <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -118,11 +129,31 @@ export function ParentClipsManager({
               {missing} clip{missing === 1 ? " has" : "s have"} no description. Use <strong>Add description</strong> so parents can tell them apart.
             </p>
           )}
-          <ul className="divide-y divide-slate-100">
-            {clips.map((c) => (
-              <ClipItem key={c.id} clip={c} teamId={teamId} onChanged={() => router.refresh()} />
+          <div className="space-y-2">
+            {groups.map((g) => (
+              <CollapsibleGroup
+                key={g.key}
+                title={g.title}
+                count={g.clips.length}
+                countLabel="clip"
+                open={openKeys.has(g.key)}
+                onToggle={() =>
+                  setOpenKeys((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(g.key)) next.delete(g.key);
+                    else next.add(g.key);
+                    return next;
+                  })
+                }
+              >
+                <ul className="divide-y divide-slate-100">
+                  {g.clips.map((c) => (
+                    <ClipItem key={c.id} clip={c} teamId={teamId} onChanged={() => router.refresh()} />
+                  ))}
+                </ul>
+              </CollapsibleGroup>
             ))}
-          </ul>
+          </div>
         </>
       )}
     </section>

@@ -11,6 +11,7 @@ export function CollapsibleGroup({
   countLabel,
   open,
   onToggle,
+  flush = false,
   children,
 }: {
   title: string;
@@ -18,6 +19,7 @@ export function CollapsibleGroup({
   countLabel: string; // e.g. "game" or "clip" (pluralised here)
   open: boolean;
   onToggle: () => void;
+  flush?: boolean; // children bring their own horizontal padding (full-width rows)
   children: ReactNode;
 }) {
   return (
@@ -39,7 +41,7 @@ export function CollapsibleGroup({
           ▶
         </span>
       </button>
-      {open && <div className="border-t border-slate-100 px-4">{children}</div>}
+      {open && <div className={cn("border-t border-slate-100", !flush && "px-4")}>{children}</div>}
     </div>
   );
 }

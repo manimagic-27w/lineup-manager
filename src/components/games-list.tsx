@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ensureHttpUrl, formatDate } from "@/lib/utils";
 import { computeRecord, formatRecord, gameOutcome } from "@/lib/game-record";
 import { groupGamesByTournament } from "@/lib/tournament-groups";
+import { CollapsibleGroup } from "@/components/collapsible-group";
 
 type Game = {
   id: string;
@@ -41,6 +42,15 @@ export function GamesList({
   tournaments?: { id: string; name: string }[];
 }) {
   const [filter, setFilter] = useState("");
+  // Tournaments start collapsed; "Other games" starts open. Keys here are the ones the coach has flipped.
+  const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  const flip = (key: string) =>
+    setFlipped((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const filtered = useMemo(() => {
     if (!filter) return games;
@@ -164,24 +174,31 @@ export function GamesList({
           <p className="p-4 text-sm text-slate-500">No games in this season.</p>
         </div>
       ) : (
-        groups.map((group) => (
-          <div key={group.tournament?.id ?? "__ungrouped__"} className="space-y-1.5">
-            {tournaments.length > 0 && group.tournament && (
-              <h3 className="flex items-baseline gap-2 px-1 text-sm font-semibold text-slate-900">
-                {group.tournament.name}
-                <span className="text-xs font-normal text-slate-500">
-                  {group.games.length} game{group.games.length === 1 ? "" : "s"}
-                </span>
-              </h3>
-            )}
-            {tournaments.length > 0 && !group.tournament && groups.length > 1 && (
-              <h3 className="px-1 text-sm font-semibold text-slate-500">Other games</h3>
-            )}
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        groups.map((group) => {
+          // No tournaments: the plain schedule, exactly as before.
+          if (tournaments.length === 0) {
+            return (
+              <div key="__ungrouped__" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <ul className="divide-y divide-slate-100">{group.games.map((g) => renderGame(g))}</ul>
+              </div>
+            );
+          }
+          const key = group.tournament?.id ?? "__ungrouped__";
+          const startsOpen = !group.tournament;
+          return (
+            <CollapsibleGroup
+              key={key}
+              title={group.tournament ? group.tournament.name : groups.length > 1 ? "Other games" : "Games"}
+              count={group.games.length}
+              countLabel="game"
+              open={flipped.has(key) !== startsOpen}
+              onToggle={() => flip(key)}
+              flush
+            >
               <ul className="divide-y divide-slate-100">{group.games.map((g) => renderGame(g))}</ul>
-            </div>
-          </div>
-        ))
+            </CollapsibleGroup>
+          );
+        })
       )}
     </div>
   );
