@@ -272,6 +272,8 @@ export function describeActivity(action: string, details: string | null, refs: A
       return d ? `created the season ${d}` : "created a season";
     case "clip_deleted":
       return d ? `deleted a parent clip (${d})` : "deleted a parent clip";
+    case "clip_updated":
+      return d ? `updated the description of a parent clip (${d})` : "updated a parent clip";
     case "season_deleted":
       return d ? `deleted the season ${d}` : "deleted a season";
     case "data_exported":

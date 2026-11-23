@@ -4,8 +4,11 @@ import { z } from "zod";
 import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { games, parentClips, tournaments } from "@/lib/db/schema";
+import { games, parentClips, teams, tournaments } from "@/lib/db/schema";
+import { auth } from "@clerk/nextjs/server";
 import { requireTeamAccess } from "@/lib/auth";
+import { isPlatformAdminId } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform";
 import { teamHasFeature } from "@/lib/features";
 import { logActivity } from "@/lib/activity";
 import { openFilmIndex } from "@/lib/film-index-server";
@@ -220,31 +223,64 @@ export async function getClipLinks(input: { token: string; pin: string; clipId: 
   return { ok: true, viewUrl, downloadUrl };
 }
 
-/** Coach: delete any clip now. Needs team access (works even if the feature is later switched off). */
+/**
+ * Who may manage clips (change the description, delete): a coach of the team, a club admin
+ * (requireTeamAccess covers both), or a platform admin, who may not be a member of the club.
+ */
+async function requireClipEditor(teamId: string): Promise<{ userId: string; teamId: string }> {
+  const id = z.string().uuid().parse(teamId);
+  const { userId } = await auth();
+  if (userId && isPlatformAdminId(userId, process.env.PLATFORM_ADMIN_USER_IDS)) {
+    const [team] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, id)).limit(1);
+    if (team) return { userId, teamId: id };
+  }
+  const access = await requireTeamAccess(id);
+  return { userId: access.userId, teamId: id };
+}
+
+/** Coach, club admin or platform admin: delete any clip now (works even if the feature is later switched off). */
 export async function deleteParentClip(teamId: string, clipId: string): Promise<{ ok: true } | Failure> {
-  const { userId } = await requireTeamAccess(z.string().uuid().parse(teamId));
+  const { userId } = await requireClipEditor(teamId);
   const clip = await findClip(teamId, clipId);
   if (!clip) return { ok: true };
   await eraseClips([clip.id]);
   await logActivity({ teamId, actorUserId: userId, action: "clip_deleted", details: clip.filename });
   revalidatePath(`/teams/${teamId}/games`);
+  revalidatePath("/platform");
   return { ok: true };
 }
 
-export type CoachClipDTO = ClipDTO & { scopeLabel: string };
+/**
+ * Coach, club admin or platform admin: set or fix a clip's description when the parent left it blank
+ * (or got it wrong). An empty description is allowed - parents then see the file name instead.
+ */
+export async function updateParentClipCaption(teamId: string, clipId: string, caption: string): Promise<{ ok: true; caption: string } | Failure> {
+  const { userId } = await requireClipEditor(teamId);
+  const clip = await findClip(teamId, clipId);
+  if (!clip) return { ok: false, error: "That clip no longer exists." };
+  const clean = cleanCaption(typeof caption === "string" ? caption : "");
+  await db.update(parentClips).set({ caption: clean }).where(eq(parentClips.id, clip.id));
+  await logActivity({ teamId, actorUserId: userId, action: "clip_updated", details: clean || clip.filename });
+  revalidatePath(`/teams/${teamId}/games`);
+  revalidatePath("/platform");
+  return { ok: true, caption: clean };
+}
 
-/** Coach: every clip currently shared for the team, newest first, with the game or tournament it belongs to. */
-export async function listParentClips(teamId: string): Promise<CoachClipDTO[]> {
-  await requireTeamAccess(z.string().uuid().parse(teamId));
+export type CoachClipDTO = ClipDTO & { scopeLabel: string; teamId: string };
+
+const readyClips = () => and(eq(parentClips.status, "ready"), isNotNull(parentClips.expiresAt), gt(parentClips.expiresAt, new Date()));
+
+async function loadCoachClips(where: ReturnType<typeof and>): Promise<CoachClipDTO[]> {
   const rows = await db
     .select({ clip: parentClips, date: games.date, opponent: games.opponent, tournamentName: tournaments.name })
     .from(parentClips)
     .leftJoin(games, eq(games.id, parentClips.gameId))
     .leftJoin(tournaments, eq(tournaments.id, parentClips.tournamentId))
-    .where(and(eq(parentClips.teamId, teamId), eq(parentClips.status, "ready"), isNotNull(parentClips.expiresAt), gt(parentClips.expiresAt, new Date())))
+    .where(where)
     .orderBy(desc(parentClips.createdAt));
   return rows.map(({ clip, date, opponent, tournamentName }) => ({
     id: clip.id,
+    teamId: clip.teamId,
     gameId: clip.gameId,
     tournamentId: clip.tournamentId,
     uploaderName: clip.uploaderName,
@@ -255,4 +291,16 @@ export async function listParentClips(teamId: string): Promise<CoachClipDTO[]> {
     expiresAtMs: (clip.expiresAt as Date).getTime(),
     scopeLabel: tournamentName ? `Tournament: ${tournamentName}` : date ? `${date}${opponent ? ` vs ${opponent}` : ""}` : "Game",
   }));
+}
+
+/** Coach, club admin or platform admin: every clip currently shared for the team, newest first. */
+export async function listParentClips(teamId: string): Promise<CoachClipDTO[]> {
+  const { teamId: id } = await requireClipEditor(teamId);
+  return loadCoachClips(and(eq(parentClips.teamId, id), readyClips()));
+}
+
+/** Platform admin only: every shared clip across all clubs (for the platform page). */
+export async function listAllParentClips(): Promise<CoachClipDTO[]> {
+  await requirePlatformAdmin();
+  return loadCoachClips(readyClips());
 }

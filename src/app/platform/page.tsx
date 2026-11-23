@@ -9,6 +9,9 @@ import { applyDatabaseUpdates, createClub, inviteClubAdmin, resendClubInvitation
 import { db } from "@/lib/db";
 import { clubFeatures, clubSettings, teamFeatures, teams, CLUB_FEATURES, TEAM_FEATURES, TEAM_GENDERS } from "@/lib/db/schema";
 import { isCurrentUserPlatformAdmin, requirePlatformAdmin } from "@/lib/platform";
+import { ParentClipsManager } from "@/components/parent-clips-manager";
+import { listAllParentClips, type CoachClipDTO } from "@/actions/parent-clips";
+import { clipStorageConfigured } from "@/lib/r2";
 import { parsePlatformAdminIds } from "@/lib/platform-admin";
 
 // Above all the clubs: create a club, name its main admin, and see/open every club. Only the
@@ -44,13 +47,20 @@ export default async function PlatformPage({
   const params = await searchParams;
   const clerk = await clerkClient();
 
-  const [{ data: orgs }, settings, teamRows, featureRows, teamFeatureRows] = await Promise.all([
+  const [{ data: orgs }, settings, teamRows, featureRows, teamFeatureRows, allClips] = await Promise.all([
     clerk.organizations.getOrganizationList({ limit: 100, orderBy: "name", includeMembersCount: true }),
     db.select().from(clubSettings),
     db.select({ id: teams.id, orgId: teams.orgId, name: teams.name }).from(teams).orderBy(teams.name),
     db.select().from(clubFeatures),
     db.select().from(teamFeatures),
+    listAllParentClips().catch(() => [] as CoachClipDTO[]), // before migration 0025 runs the table doesn't exist yet
   ]);
+  const clipsByTeam = new Map<string, CoachClipDTO[]>();
+  for (const c of allClips) {
+    if (!clipsByTeam.has(c.teamId)) clipsByTeam.set(c.teamId, []);
+    clipsByTeam.get(c.teamId)!.push(c);
+  }
+  const clipsConfigured = clipStorageConfigured();
   const teamsList = new Map<string, { id: string; name: string }[]>();
   for (const t of teamRows) {
     if (!teamsList.has(t.orgId)) teamsList.set(t.orgId, []);
@@ -237,6 +247,21 @@ export default async function PlatformPage({
                           }),
                         )}
                       </ul>
+                    </details>
+                  )}
+
+                  {(teamsList.get(o.id) ?? []).some((t) => clipsByTeam.has(t.id)) && (
+                    <details className="rounded-md bg-slate-50 px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-medium text-slate-500">
+                        Parent clips ({(teamsList.get(o.id) ?? []).reduce((n, t) => n + (clipsByTeam.get(t.id)?.length ?? 0), 0)})
+                      </summary>
+                      <div className="mt-2 space-y-3">
+                        {(teamsList.get(o.id) ?? [])
+                          .filter((t) => clipsByTeam.has(t.id))
+                          .map((t) => (
+                            <ParentClipsManager key={t.id} teamId={t.id} clips={clipsByTeam.get(t.id)!} configured={clipsConfigured} title={`${t.name} – parent clips`} />
+                          ))}
+                      </div>
                     </details>
                   )}
 
